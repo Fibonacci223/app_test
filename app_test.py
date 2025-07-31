@@ -6,6 +6,19 @@ import time
 
  
 
+
+def scroll_both_up(event=None):
+    event.widget.yview_moveto(0)
+    if hasattr(event.widget, 'term2') and event.widget.term2:
+        event.widget.term2.yview_moveto(0)
+    return "break"
+
+def scroll_both_down(event=None):
+    event.widget.yview_moveto(1)
+    if hasattr(event.widget, 'term2') and event.widget.term2:
+        event.widget.term2.yview_moveto(1)
+    return "break"
+
 def handle_right_click(text_widget, event, terminal1, prompt_index=None):
     try:
         # Se c'è selezione nel terminale cliccato
@@ -28,9 +41,15 @@ def handle_right_click(text_widget, event, terminal1, prompt_index=None):
 
 
 
+def scroll_to_top(event=None):
+    widget = event.widget
+    widget.yview_moveto(0)
+    return "break"
 
-
-
+def scroll_to_bottom(event=None):
+    widget = event.widget
+    widget.yview_moveto(1)
+    return "break"
 
 
 
@@ -193,6 +212,9 @@ class Terminal1(tk.Text):
 
         self.command_history = []
         self.history_index = None
+        self.bind("<Control-Up>", scroll_both_up)
+        self.bind("<Control-Down>", scroll_both_down)
+
 
     def is_selection_readonly(self):
         try:
@@ -214,17 +236,26 @@ class Terminal1(tk.Text):
             return "break"
         if self.is_selection_readonly():
             return "break"
+
+        # Spazio per interrompere typing su terminal2
         if event.keysym == "space" and self.term2:
             if self.term2.typing_thread and self.term2.typing_thread.is_alive():
                 self.term2.skip_typing = True
                 return "break"
 
-        if event.keysym == "Down":
-            self.show_previous_command()
-            return "break"
-        elif event.keysym == "Up":
-            self.show_next_command()
-            return "break"
+        # Gestione frecce
+        if event.keysym == "Up":
+            if event.state & 0x4:  # Ctrl
+                return scroll_to_top(event)
+            else:
+                self.show_next_command()
+                return "break"
+        elif event.keysym == "Down":
+            if event.state & 0x4:  # Ctrl
+                return scroll_to_bottom(event)
+            else:
+                self.show_previous_command()
+                return "break"
 
     def on_click(self, event):
         if self.compare(self.index(f"@{event.x},{event.y}"), "<", self.prompt_index):
@@ -303,6 +334,8 @@ class Terminal2(tk.Text):
         self.typing_thread = None
         self.skip_typing = False
         self.bind("<Button-3>", lambda e: handle_right_click(self, e, terminal1=None))
+        self.bind("<Control-Up>", scroll_to_top)
+        self.bind("<Control-Down>", scroll_to_bottom)
 
 
     def clear_and_insert_prompt(self):
