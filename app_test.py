@@ -4,7 +4,7 @@ import time
 
 #-----------------------------------------------------------------------------------------------------------------
 
-#Aaaa
+ 
 
 def handle_right_click(text_widget, event, terminal1, prompt_index=None):
     try:
