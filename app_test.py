@@ -194,10 +194,18 @@ class Terminal1(tk.Text):
         self.prompt = prompt
         self.on_enter = on_enter
         self.term2 = term2
-        self.configure(fg="lime", bg="black", insertbackground="lime",
-                       font=("Courier New", 14), undo=False, wrap="word",
-                       bd=2, relief="solid", highlightthickness=2,
-                       highlightbackground="lime")
+        self.configure(
+                        fg="lime",
+                        bg="black",
+                        insertbackground="lime",
+                        font=("Courier New", 14),
+                        undo=False,
+                        wrap="word",
+                        bd=2,
+                        relief="solid",
+                        highlightthickness=2,
+                        highlightbackground="black",  # bordo base spento (nero)
+                        highlightcolor="lime" )   
         self.insert("1.0", "Microsoft Windows [Versione 10.0.26100.4652]\n"
                     "(c) Microsoft Corporation. Tutti i diritti riservati.\n\n")
         self.insert("end", prompt)
@@ -410,6 +418,64 @@ def avvia_gui():
 
     terminal1.pack(side="left", fill="both", expand=True, padx=5, pady=5)
     terminal2.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+
+    def switch_to_term1(event=None):
+        terminal1.focus_set()
+        terminal1.config(highlightbackground="lime")   # bordo acceso
+        terminal2.config(highlightbackground="black")  # bordo spento
+        return "break"
+
+    def switch_to_term2(event=None):
+        terminal2.focus_set()
+        terminal2.config(highlightbackground="lime")
+        terminal1.config(highlightbackground="black")
+        return "break"
+
+    root.bind("<Control-Left>", switch_to_term1)
+    root.bind("<Control-Right>", switch_to_term2)
+
+
+ # Bind focus per aggiornare bordo anche con click mouse
+    terminal1.bind("<FocusIn>", lambda e: (
+        terminal1.config(highlightbackground="lime"),
+        terminal2.config(highlightbackground="black")
+    ))
+    terminal2.bind("<FocusIn>", lambda e: (
+        terminal2.config(highlightbackground="lime", highlightcolor="lime"),
+        terminal1.config(highlightbackground="black")
+))
+    terminal2.bind("<FocusOut>", lambda e: (
+    terminal2.config(highlightbackground="black"),
+))
+    # Collego il metodo all_shifts corretto a Terminal2
+    setattr(Terminal2, "all_shifts", all_shifts)
+
+    def on_command(cmd):
+        if not cmd.strip():
+            terminal1.insert_prompt()
+            return
+        
+        mode_text = f"Modalità attiva: {mode_var.get()}\n\n"
+
+        if mode_var.get() == "Tutti gli Shift":
+            text = terminal2.all_shifts(cmd)
+        else:
+            text = cmd
+
+        terminal2.type_text(mode_text + text)  # ⌨️ Simulazione digitazione
+
+        terminal1.insert_prompt()
+
+    terminal1.on_enter = on_command
+
+
+
+
+
+
+
+
+
 
     # Collego il metodo all_shifts corretto a Terminal2
     setattr(Terminal2, "all_shifts", all_shifts)
