@@ -2,63 +2,102 @@ import tkinter as tk
 import threading
 import time
 
-# ---a--------------------------------------------------------------------------------------------------------------
+#Scroll------------------------------------------------------------------------------------------------------------
+
+def smooth_scroll(widget, target, steps=100, delay=10):
+    widget._scroll_interrupt = False  # Reset flag
+
+    current = widget.yview()[0]
+    delta = (target - current) / steps
+
+    def step(i=0):
+        nonlocal current
+        if widget._scroll_interrupt:
+            widget.yview_moveto(target)  # Salta direttamente al punto finale
+            return
+        if i >= steps:
+            widget.yview_moveto(target)
+            return
+        current += delta
+        widget.yview_moveto(current)
+        widget.after(delay, step, i + 1)
+
+    step()   
 
 
+# Scrolla entrambi i terminali associati (term1 e term2) verso l'inizio
 def scroll_both_up(event=None):
-    event.widget.yview_moveto(0)
-    if hasattr(event.widget, 'term2') and event.widget.term2:
-        event.widget.term2.yview_moveto(0)
+    widget = event.widget
+    smooth_scroll(widget, target=0.0)  # Scrolla il widget principale
+    if hasattr(widget, 'term2') and widget.term2:
+        smooth_scroll(widget.term2, target=0.0)  # Scrolla anche term2, se esiste
+    elif hasattr(widget, 'term1') and widget.term1:
+        smooth_scroll(widget.term1, target=0.0)  # Altrimenti scrolla term1
     return "break"
 
 
+# Scrolla entrambi i terminali associati verso la fine
 def scroll_both_down(event=None):
-    event.widget.yview_moveto(1)
-    if hasattr(event.widget, 'term2') and event.widget.term2:
-        event.widget.term2.yview_moveto(1)
+    widget = event.widget
+    smooth_scroll(widget, target=1.0)  # Scrolla il widget principale
+    if hasattr(widget, 'term2') and widget.term2:
+        smooth_scroll(widget.term2, target=1.0)
+    elif hasattr(widget, 'term1') and widget.term1:
+        smooth_scroll(widget.term1, target=1.0)
     return "break"
 
+#Copia-------------------------------------------------------------------------------------------------------------
+
+# Gestisce il click destro su un Text widget: copia se c'è selezione, incolla se no (solo su terminal1)
 
 def handle_right_click(text_widget, event, terminal1, prompt_index=None):
     try:
-        # Se c'è selezione nel terminale cliccato
         if text_widget.tag_ranges("sel"):
+            # Se c'è una selezione, copia negli appunti
             selected = text_widget.get("sel.first", "sel.last")
             text_widget.clipboard_clear()
             text_widget.clipboard_append(selected)
         else:
-            # Nessuna selezione: incolla solo nel terminale1
+            # Nessuna selezione: incolla negli appunti
             clip = text_widget.clipboard_get()
-            # Incolla SOLO se text_widget è terminale1
             if text_widget == terminal1:
+                # Calcola la posizione in base al punto cliccato
                 index = text_widget.index(f"@{event.x},{event.y}")
+                # Incolla solo se siamo oltre il prompt (se definito)
                 if prompt_index is None or text_widget.compare(index, ">=", prompt_index):
                     text_widget.insert(index, clip)
                     text_widget.see("insert")
     except tk.TclError:
+        # Errore gestito silenziosamente
         pass
     return "break"
 
+#Scrolla il widget--------------------------------------------------------------------------------------------------
 
+# Scrolla il widget all'inizio (riga 1.0)
 def scroll_to_top(event=None):
     widget = event.widget
-    widget.yview_moveto(0)
-    widget.mark_set("insert", "1.0")
-    widget.see("insert")
+    widget.yview_moveto(0)  # Sposta la vista in alto
+    widget.mark_set("insert", "1.0")  # Posiziona il cursore all'inizio
+    widget.see("insert")  # Assicura che sia visibile
     return "break"
 
+
+# Scrolla il widget alla fine (fine del testo)
 
 def scroll_to_bottom(event=None):
     widget = event.widget
-    widget.yview_moveto(1)
-    widget.mark_set("insert", "end-1c")
-    widget.see("insert")
+    widget.yview_moveto(1)  # Sposta la vista in basso
+    widget.mark_set("insert", "end-1c")  # Imposta il cursore alla fine (1 carattere prima di 'end')
+    widget.see("insert")  # Assicura che sia visibile
     if hasattr(widget, "history_index"):
-        widget.history_index = None
+        widget.history_index = None  # Resetta eventuale indice di cronologia
     return "break"
 
 
-# Funzione cifratura Caesar
+#Cifrario-----------------------------------------------------------------------------------------------------------
+
+# Cifrario di Cesare: sposta le lettere dell'alfabeto di 'shift' posizioni
 def caesar_cipher(text, shift):
     result = ""
     for c in text:
@@ -66,29 +105,27 @@ def caesar_cipher(text, shift):
             base = ord('A') if c.isupper() else ord('a')
             result += chr((ord(c) - base + shift) % 26 + base)
         else:
-            result += c
+            result += c  # Caratteri non alfabetici rimangono invariati
     return result
 
-# Funzione cifratura Atbash
 
-
+# Cifrario di Atbash: sostituisce ogni lettera con il suo "opposto" nell'alfabeto
 def atbash_cipher(text):
     result = ""
     for c in text:
         if c.isalpha():
             if c.isupper():
-                # Per le maiuscole: Z - (c - A)
                 result += chr(ord('Z') - (ord(c) - ord('A')))
             else:
-                # Per le minuscole: z - (c - a)
                 result += chr(ord('z') - (ord(c) - ord('a')))
         else:
-            result += c
+            result += c  # Caratteri non alfabetici rimangono invariati
     return result
 
 
+# Brute force per cifratura affine: prova tutte le combinazioni valide di (a, b)
 def affine_encrypt_bruteforce(plaintext):
-    valid_a = [1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25]
+    valid_a = [1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25]  # Valori coprimi con 26
     risultati = []
 
     for a in valid_a:
@@ -96,65 +133,71 @@ def affine_encrypt_bruteforce(plaintext):
             ciphertext = ""
             for char in plaintext:
                 if char.isalpha():
-                    x = ord(char.upper()) - ord('A')
-                    y = (a * x + b) % 26
+                    x = ord(char.upper()) - ord('A')  # Converti in indice alfabetico
+                    y = (a * x + b) % 26  # Formula affine
                     ciphertext += chr(y + ord('A'))
                 else:
                     ciphertext += char
-            risultati.append((a, b, ciphertext))
+            risultati.append((a, b, ciphertext))  # Salva risultato
 
     return risultati
 
 
+# Brute force per decifratura affine: prova tutte le chiavi (a, b)
 def affine_decrypt_bruteforce(ciphertext):
     valid_a = [1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25]
     risultati = []
 
     for a in valid_a:
         a_inv = None
+        # Calcolo dell'inverso moltiplicativo di a modulo 26
         for i in range(26):
             if (a * i) % 26 == 1:
                 a_inv = i
                 break
         if a_inv is None:
-            continue
+            continue  # Salta se non esiste l'inverso
 
         for b in range(26):
             plaintext = ""
             for char in ciphertext:
                 if char.isalpha():
                     y = ord(char.upper()) - ord('A')
-                    x = (a_inv * (y - b)) % 26
+                    x = (a_inv * (y - b)) % 26  # Formula inversa affine
                     plaintext += chr(x + ord('A'))
                 else:
                     plaintext += char
-            risultati.append((a, b, plaintext))
+            risultati.append((a, b, plaintext))  # Salva risultato
 
     return risultati
 
+#Grafica-------------------------------------------------------------------------------------
 
+# Crea una riga con un titolo centrato tra caratteri decorativi (pattern)
 def separator_with_title(title, width=85, pattern="-"):
     title = f" {title} "
     title_len = len(title)
+
     if title_len >= width:
-        # Se il titolo è troppo lungo, restituisco solo il titolo troncato o completo
-        return title[:width]
+        return title[:width]  # Troncamento se il titolo è troppo lungo
 
     total_padding = width - title_len
     left_padding = total_padding // 2
     right_padding = total_padding - left_padding
 
-    # Costruisco le due metà della linea usando il pattern ripetuto e troncato alla lunghezza desiderata
+    # Costruisce i bordi decorativi a sinistra e destra
     def build_side(pad_len):
         times = pad_len // len(pattern) + 1
-        side = (pattern * times)[:pad_len]
-        return side
+        return (pattern * times)[:pad_len]
 
     left_line = build_side(left_padding)
     right_line = build_side(right_padding)
 
     return left_line + title + right_line
 
+
+
+#BRUTEFORCE SHIFT -------------------------------------------------------------------------
 # Metodo da associare a Terminal2: restituisce tutte le 26 varianti shiftate e la cifratura Atbash
 
 
@@ -185,8 +228,10 @@ def all_shifts(self, text):
         results.append(f"{label.ljust(colon_pos)} : {decrypted.upper()}")
 
     return '\n'.join(results)
-# Terminal1: area testo con prompt e input da utente
 
+# Terminale 1---------------------------------------------------------------------------------------------
+ 
+# Terminale 1
 
 class Terminal1(tk.Text):
     def __init__(self, master, prompt, on_enter, term2=None, **kwargs):
@@ -231,6 +276,7 @@ class Terminal1(tk.Text):
         self.history_index = None
         self.bind("<Control-Up>", scroll_both_up)
         self.bind("<Control-Down>", scroll_both_down)
+        
 
     def is_selection_readonly(self):
         try:
@@ -254,10 +300,27 @@ class Terminal1(tk.Text):
         if self.is_selection_readonly():
             return "break"
 
-        if event.keysym == "space" and self.term2:
-            if self.term2.typing_thread and self.term2.typing_thread.is_alive():
+        if event.keysym == "space":
+            interrupted = False
+
+            # Interrompe typing su Terminal2
+            if self.term2 and self.term2.typing_thread and self.term2.typing_thread.is_alive():
                 self.term2.skip_typing = True
-                return "break"
+                interrupted = True
+
+            # Interrompe scroll fluido su entrambi
+            for term in (self, getattr(self, "term2", None)):
+                if term and hasattr(term, "_scroll_interrupt"):
+                    term._scroll_interrupt = True
+                    interrupted = True
+
+            # Inserisci lo spazio nel punto corrente del cursore
+            self.insert("insert", " ")
+
+            # Sposta il cursore dopo lo spazio inserito
+            self.mark_set("insert", self.index("insert + 1c"))
+
+            return "break"  # Blocca evento originale, perché abbiamo gestito tutto
 
         if event.keysym == "Up":
             if event.state & 0x4:  # Ctrl
@@ -331,16 +394,26 @@ class Terminal1(tk.Text):
         self.mark_set("insert", self.index(
             f"{self.prompt_index}+{len(text)}c"))
 
-
-# Terminal2: solo output, con funzione typing simulata
+ # Terminale 2------------------------------------------------------------------------------------
+ 
+# Terminale 2
+ 
 class Terminal2(tk.Text):
     def __init__(self, master, prompt, **kwargs):
         super().__init__(master, **kwargs)
         self.prompt = prompt
-        self.configure(fg="lime", bg="black", insertbackground="lime",
-                       font=("Courier New", 14), undo=False, wrap="word",
-                       bd=2, relief="solid", highlightthickness=2,
-                       highlightbackground="lime")
+        self.configure(
+            fg="lime",
+            bg="black",
+            insertbackground="lime",
+            font=("Courier New", 14),
+            undo=False,
+            wrap="word",
+            bd=2,
+            relief="solid",
+            highlightthickness=2,
+            highlightbackground="lime"
+        )
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -348,18 +421,25 @@ class Terminal2(tk.Text):
         self.mark_set("insert", self.prompt_index)
         self.typing_thread = None
         self.skip_typing = False
-        self.bind("<Button-3>",
-                  lambda e: handle_right_click(self, e, terminal1=None))
-        self.bind("<Control-Up>", scroll_to_top)
-        self.bind("<Control-Down>", scroll_to_bottom)
+
+        # Blocca qualsiasi input da tastiera (modifica) ma permette selezione/copia
+        self.bind("<Key>", self.on_key_terminal2)
+        self.bind("<Control-v>", lambda e: "break")   # Blocca incolla
+        self.bind("<Button-2>", lambda e: "break")    # Blocca incolla con mouse centrale (Linux)
+        
+        # Mantieni i bind esistenti
+        self.bind("<Button-3>", lambda e: handle_right_click(self, e, terminal1=None))
+        self.bind("<Control-Up>", scroll_both_up)
+        self.bind("<Control-Down>", scroll_both_down)
 
     def clear_and_insert_prompt(self):
-        self.config(state="normal")
+        self.config(state="normal")  # necessario per modifiche programmatiche
         self.delete("1.0", "end")
         self.insert("end", self.prompt)
         self.prompt_index = self.index("end-1c")
         self.mark_set("insert", self.prompt_index)
         self.see("end")
+        # NON disabilitiamo lo stato per permettere selezione/copia
 
     def type_text(self, text, delay=0.03):
         if self.typing_thread and self.typing_thread.is_alive():
@@ -369,6 +449,9 @@ class Terminal2(tk.Text):
         self.clear_and_insert_prompt()
 
         def run_typing():
+            # Configurazione "normale" per permettere insert
+            self.config(state="normal")
+
             for c in text:
                 if self.skip_typing:
                     remaining = text[text.index(c):]
@@ -378,18 +461,36 @@ class Terminal2(tk.Text):
                 self.insert("end", c)
                 self.see("end")
                 time.sleep(delay)
+
             self.mark_set("insert", self.index("end-1c"))
+            # Rimaniamo in stato normale per permettere selezione e copia
 
         self.typing_thread = threading.Thread(target=run_typing)
         self.typing_thread.daemon = True
         self.typing_thread.start()
+    def on_key_terminal2(self, event):
+        if event.keysym == "space":
+            # ✅ Interrompi scrittura simulata se attiva
+            if self.typing_thread and self.typing_thread.is_alive():
+                self.skip_typing = True
 
+            # ✅ Interrompi scroll fluido se in corso su entrambi
+            for term in (self, getattr(self, "term1", None)):
+                if term and hasattr(term, "_scroll_interrupt"):
+                    term._scroll_interrupt = True
+                    term.yview_moveto(1.0)  # 🔽 Forza il salto alla fine
 
+            return "break"  # Impedisce l'inserimento dello spazio
+
+        return "break"  # Blocca tutti gli altri tasti (puoi rimuoverlo per permettere altri comandi)
+
+ #(Gui)----------------------------------------------------------------------------------------------------------
 def avvia_gui():
     root = tk.Tk()
     root.title("Fake Desktop Terminal")
     root.configure(bg="black")
     root.attributes("-fullscreen", True)
+    
 
     PROMPT1 = "Terminale1@fakedesktop:~$ "
     PROMPT2 = "Terminale2@fakedesktop:~$ "
@@ -418,6 +519,7 @@ def avvia_gui():
 
     terminal1.pack(side="left", fill="both", expand=True, padx=5, pady=5)
     terminal2.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+    terminal2.term1 = terminal1
 
     def switch_to_term1(event=None):
         terminal1.focus_set()
@@ -454,7 +556,7 @@ def avvia_gui():
         if not cmd.strip():
             terminal1.insert_prompt()
             return
-        
+
         mode_text = f"Modalità attiva: {mode_var.get()}\n\n"
 
         if mode_var.get() == "Tutti gli Shift":
@@ -470,14 +572,7 @@ def avvia_gui():
 
 
 
-
-
-
-
-
-
-
-    # Collego il metodo all_shifts corretto a Terminal2
+ # Collego il metodo all_shifts corretto a Terminal2
     setattr(Terminal2, "all_shifts", all_shifts)
 
     def on_command(cmd):
@@ -498,6 +593,7 @@ def avvia_gui():
 
     terminal1.on_enter = on_command
 
+   
     root.mainloop()
 
 
