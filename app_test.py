@@ -5,17 +5,32 @@ import time
 # ---a--------------------------------------------------------------------------------------------------------------
 
 
+def smooth_scroll(widget, target, steps=100, delay=10):
+    current = widget.yview()[0]  # posizione attuale scroll (float 0.0-1.0)
+    delta = (target - current) / steps
+
+    def step(i=0):
+        nonlocal current
+        if i >= steps:
+            widget.yview_moveto(target)
+            return
+        current += delta
+        widget.yview_moveto(current)
+        widget.after(delay, step, i + 1)
+
+    step()
 def scroll_both_up(event=None):
-    event.widget.yview_moveto(0)
-    if hasattr(event.widget, 'term2') and event.widget.term2:
-        event.widget.term2.yview_moveto(0)
+    widget = event.widget
+    smooth_scroll(widget, target=0.0)
+    if hasattr(widget, 'term2') and widget.term2:
+        smooth_scroll(widget.term2, target=0.0)
     return "break"
 
-
 def scroll_both_down(event=None):
-    event.widget.yview_moveto(1)
-    if hasattr(event.widget, 'term2') and event.widget.term2:
-        event.widget.term2.yview_moveto(1)
+    widget = event.widget
+    smooth_scroll(widget, target=1.0)
+    if hasattr(widget, 'term2') and widget.term2:
+        smooth_scroll(widget.term2, target=1.0)
     return "break"
 
 
