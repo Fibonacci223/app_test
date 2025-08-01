@@ -19,11 +19,14 @@ def smooth_scroll(widget, target, steps=100, delay=10):
         widget.after(delay, step, i + 1)
 
     step()
+    
 def scroll_both_up(event=None):
     widget = event.widget
     smooth_scroll(widget, target=0.0)
     if hasattr(widget, 'term2') and widget.term2:
         smooth_scroll(widget.term2, target=0.0)
+    elif hasattr(widget, 'term1') and widget.term1:
+        smooth_scroll(widget.term1, target=0.0)
     return "break"
 
 def scroll_both_down(event=None):
@@ -31,6 +34,8 @@ def scroll_both_down(event=None):
     smooth_scroll(widget, target=1.0)
     if hasattr(widget, 'term2') and widget.term2:
         smooth_scroll(widget.term2, target=1.0)
+    elif hasattr(widget, 'term1') and widget.term1:
+        smooth_scroll(widget.term1, target=1.0)
     return "break"
 
 
@@ -365,8 +370,9 @@ class Terminal2(tk.Text):
         self.skip_typing = False
         self.bind("<Button-3>",
                   lambda e: handle_right_click(self, e, terminal1=None))
-        self.bind("<Control-Up>", scroll_to_top)
-        self.bind("<Control-Down>", scroll_to_bottom)
+       
+        self.bind("<Control-Up>", scroll_both_up)
+        self.bind("<Control-Down>", scroll_both_down)
 
     def clear_and_insert_prompt(self):
         self.config(state="normal")
@@ -405,6 +411,7 @@ def avvia_gui():
     root.title("Fake Desktop Terminal")
     root.configure(bg="black")
     root.attributes("-fullscreen", True)
+    
 
     PROMPT1 = "Terminale1@fakedesktop:~$ "
     PROMPT2 = "Terminale2@fakedesktop:~$ "
@@ -433,6 +440,7 @@ def avvia_gui():
 
     terminal1.pack(side="left", fill="both", expand=True, padx=5, pady=5)
     terminal2.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+    terminal2.term1 = terminal1
 
     def switch_to_term1(event=None):
         terminal1.focus_set()
@@ -493,26 +501,8 @@ def avvia_gui():
 
 
     # Collego il metodo all_shifts corretto a Terminal2
-    setattr(Terminal2, "all_shifts", all_shifts)
 
-    def on_command(cmd):
-        if not cmd.strip():
-            terminal1.insert_prompt()
-            return
-
-        mode_text = f"Modalità attiva: {mode_var.get()}\n\n"
-
-        if mode_var.get() == "Tutti gli Shift":
-            text = terminal2.all_shifts(cmd)
-        else:
-            text = cmd
-
-        terminal2.type_text(mode_text + text)  # ⌨️ Simulazione digitazione
-
-        terminal1.insert_prompt()
-
-    terminal1.on_enter = on_command
-
+   
     root.mainloop()
 
 
