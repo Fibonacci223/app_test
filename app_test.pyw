@@ -1,17 +1,99 @@
+import pygame
+import random
+import sys
+import os
 import tkinter as tk
 import threading
 import time
+import tkinter.font as tkfont
+
+# --- Funzione effetto Matrix ---
+def run_matrix_effect(master_app):
+    FONT_SIZE = 20
+    CHARS = '01アイウエオカキクケコサシスセソタチツテト'
+    FPS = 60
+    TRAIL_LENGTH = 10
+    TRAIL_COLORS = [
+        (180, 255, 180),
+        (100, 255, 100),
+        (0, 200, 0),
+        (0, 150, 0),
+        (0, 100, 0),
+        (0, 50, 0),
+    ]
+
+    try:
+        pygame.init()
+        info = pygame.display.Info()
+        WIDTH, HEIGHT = info.current_w, info.current_h
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+        pygame.display.set_caption("Matrix Effect PRO")
+        clock = pygame.time.Clock()
+        font = pygame.font.SysFont("consolas", FONT_SIZE, bold=True)
+        columns = int(WIDTH / FONT_SIZE)
+
+        streams = []
+        for i in range(columns):
+            x = i * FONT_SIZE
+            y = random.randint(-HEIGHT, 0)
+            speed = random.randint(4, 10)
+            length = random.randint(8, TRAIL_LENGTH)
+            streams.append({
+                'x': x,
+                'y': y,
+                'speed': speed,
+                'length': length,
+                'chars': [random.choice(CHARS) for _ in range(TRAIL_LENGTH)],
+            })
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or \
+                   (event.type == pygame.KEYDOWN):  # Rileva qualsiasi tasto
+                    running = False
+                    break
+
+            screen.fill((0, 0, 0))
+
+            for stream in streams:
+                x = stream['x']
+                y = stream['y']
+                for i in range(stream['length']):
+                    char = random.choice(CHARS) if random.random() > 0.9 else stream['chars'][i % len(stream['chars'])]
+                    color_index = i if i < len(TRAIL_COLORS) else -1
+                    color = TRAIL_COLORS[color_index]
+                    char_surface = font.render(char, True, color)
+                    screen.blit(char_surface, (x, y - i * FONT_SIZE))
+
+                stream['y'] += stream['speed']
+
+                if stream['y'] - stream['length'] * FONT_SIZE > HEIGHT:
+                    stream['y'] = random.randint(-HEIGHT // 2, 0)
+                    stream['speed'] = random.randint(4, 10)
+                    stream['length'] = random.randint(6, TRAIL_LENGTH)
+                    stream['chars'] = [random.choice(CHARS) for _ in range(TRAIL_LENGTH)]
+
+            pygame.display.flip()
+            clock.tick(FPS)
+    finally:
+        pygame.quit()
+        # Quando Pygame si chiude, mostriamo la finestra di Tkinter
+        # L'app di Tkinter deve essere avviata in un altro thread per non bloccare Pygame
+        def show_app():
+            master_app.deiconify()
+        master_app.after(10, show_app)
+
 
 # --- Funzioni di debug ---
 def debug_cursor_and_scroll(widget):
-    """Stampa la posizione del cursore e dello scorrimento per il widget specificato."""
     cursor_index = widget.index("insert")
     yview = widget.yview()
-    print(f"DEBUG FINALE: Widget={widget}, Cursore={cursor_index}, Scorrimento={yview}")
+    #print(f"DEBUG FINALE: Widget={widget}, Cursore={cursor_index}, Scorrimento={yview}")
 
 def debug_event(event):
-    """Funzione di debug per stampare i dettagli dell'evento."""
-    print(f"DEBUG: Evento ricevuto: keysym={event.keysym}, state={event.state}")
+    #print(f"DEBUG: Evento ricevuto: keysym={event.keysym}, state={event.state}")
+    pass
 
 # --- Funzioni di utilità per lo scorrimento ---
 def smooth_scroll(widget, target, cursor_target, steps=100, delay=10):
@@ -146,7 +228,6 @@ def affine_decrypt_bruteforce(ciphertext):
             risultati.append((a, b, plaintext))
     return risultati
 
-
 # --- Funzioni di formattazione del testo ---
 def separator_with_title(title, width=85, pattern="-"):
     title = f" {title} "
@@ -197,8 +278,8 @@ class Terminal1(tk.Text):
         self.on_enter = on_enter
         self.term2 = term2
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                       highlightbackground="black", highlightcolor="lime")
+                         undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                         highlightbackground="black", highlightcolor="lime")
         self.insert("1.0", "Microsoft Windows [Versione 10.0.26100.4652]\n(c) Microsoft Corporation. Tutti i diritti riservati.\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -242,23 +323,19 @@ class Terminal1(tk.Text):
             return False
 
     def on_key(self, event):
-        # Impedisce che i tasti di navigazione spostino il cursore prima del prompt,
-        # ma permette la navigazione libera se il cursore è già prima del prompt.
         if event.keysym in ("Left", "Right", "Prior", "Next", "Home", "End"):
             if self.compare(self.index("insert"), "<", self.prompt_index):
                 return None
             else:
                 return "break"
         
-        # Gestione centralizzata dell'interruzione con la barra spaziatrice
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                 self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
                 return "break"
         
-        # Gestione dello scorrimento rapido con le frecce su/giù
         if event.keysym == "Up":
             self.show_previous_command()
             return "break"
@@ -266,7 +343,6 @@ class Terminal1(tk.Text):
             self.show_next_command()
             return "break"
 
-        # La logica del salto al prompt deve avvenire solo in caso di digitazione
         if self.compare(self.index("insert"), "<", self.prompt_index):
             self.mark_set("insert", self.prompt_index)
             return "break"
@@ -339,8 +415,8 @@ class Terminal2(tk.Text):
         self.prompt = prompt
         self.term1 = term1
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                       highlightbackground="black")
+                         undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                         highlightbackground="black")
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -367,7 +443,7 @@ class Terminal2(tk.Text):
 
     def on_ctrl_right_press(self, event):
         return None
-        
+    
     def on_arrow_key(self, event):
         debug_event(event)
         if event.keysym == "Up":
@@ -385,7 +461,7 @@ class Terminal2(tk.Text):
             self.yview_scroll(1, "units")
         debug_cursor_and_scroll(self)
         return "break"
-        
+    
     def clear_and_insert_prompt(self):
         self.config(state="normal")
         self.delete("1.0", "end")
@@ -432,12 +508,17 @@ def avvia_gui():
     root = tk.Tk()
     root.title("Fake Desktop Terminal")
     root.configure(bg="black")
+    
+    # Nasconde la finestra finché non è pronta
+    root.withdraw()
+    
     root.attributes("-fullscreen", True)
 
     PROMPT1 = "Terminale1@fakedesktop:~$ "
     PROMPT2 = "Terminale2@fakedesktop:~$ "
-    frame = tk.Frame(root, bg="black")
-    frame.pack(side="top", fill="both", expand=True)
+
+    button_frame = tk.Frame(root, bg="black")
+    button_frame.pack(side="top", fill="x", pady=5)
 
     mode_var = tk.StringVar(value="Tutti gli Shift")
     def toggle_mode():
@@ -448,12 +529,15 @@ def avvia_gui():
             mode_var.set("Tutti gli Shift")
             toggle_btn.config(text="Modalità: Tutti gli Shift")
 
-    toggle_btn = tk.Button(root, text="Modalità: Tutti gli Shift", command=toggle_mode,
-                           bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
+    toggle_btn = tk.Button(button_frame, text="Modalità: Tutti gli Shift", command=toggle_mode,
+                            bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
     toggle_btn.pack(side="top", pady=5)
 
-    terminal1 = Terminal1(frame, PROMPT1, None)
-    terminal2 = Terminal2(frame, PROMPT2, terminal1)
+    terminal_frame = tk.Frame(root, bg="black")
+    terminal_frame.pack(side="top", fill="both", expand=True)
+
+    terminal1 = Terminal1(terminal_frame, PROMPT1, None)
+    terminal2 = Terminal2(terminal_frame, PROMPT2, terminal1)
     terminal1.term2 = terminal2
     terminal1.pack(side="left", fill="both", expand=True, padx=5, pady=5)
     terminal2.pack(side="left", fill="both", expand=True, padx=5, pady=5)
@@ -496,7 +580,10 @@ def avvia_gui():
 
     terminal1.on_enter = on_command
 
-    root.mainloop()
+    return root
 
+# --- Blocco principale del programma ---
 if __name__ == "__main__":
-    avvia_gui()
+    app_root = avvia_gui()
+    run_matrix_effect(app_root)
+    app_root.mainloop()
