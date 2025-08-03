@@ -1,3 +1,4 @@
+
 import pygame
 import random
 import sys
@@ -7,6 +8,7 @@ import threading
 import time
 import tkinter.font as tkfont
 import subprocess
+import re
 
 # --- DIZIONARIO E FUNZIONI MORSE ---
 MORSE_CODE_DICT = {
@@ -20,6 +22,8 @@ MORSE_CODE_DICT = {
     '--...': '7', '---..': '8', '----.': '9'
 }
 
+REVERSE_MORSE_DICT = {value: key for key, value in MORSE_CODE_DICT.items()}
+
 def decode_morse(morse_code: str) -> str:
     """Decodifica una stringa di codice Morse in testo semplice."""
     if not morse_code.strip():
@@ -29,7 +33,7 @@ def decode_morse(morse_code: str) -> str:
     if not all(c in valid_chars for c in morse_code):
         return "?"
     
-    words = morse_code.strip().split('   ')
+    words = re.split(r'\s{3,}', morse_code.strip())
     decoded_words = []
     for word in words:
         letters = word.split(' ')
@@ -37,6 +41,22 @@ def decode_morse(morse_code: str) -> str:
         decoded_words.append(''.join(decoded_letters))
     
     return ' '.join(decoded_words)
+
+def encode_to_morse(text: str) -> str:
+    """Cifra una stringa di testo in codice Morse."""
+    morse_list = []
+    
+    for word in text.upper().split():
+        morse_word = []
+        for char in word:
+            if char in REVERSE_MORSE_DICT:
+                morse_word.append(REVERSE_MORSE_DICT[char])
+            else:
+                morse_word.append('?')
+        morse_list.append(' '.join(morse_word))
+        
+    return '   '.join(morse_list)
+
 
 # --- Funzione per eseguire uno script in background ---
 def run_script(script_path):
@@ -488,9 +508,9 @@ class Terminal2(tk.Text):
     def on_arrow_key(self, event):
         debug_event(event)
         if event.keysym == "Up":
-            self.mark_set("insert", self.index("insert - 1 line"))
+            self.yview_scroll(-1, "units")
         elif event.keysym == "Down":
-            self.mark_set("insert", self.index("insert + 1 line"))
+            self.yview_scroll(1, "units")
         self.see("insert")
         debug_cursor_and_scroll(self)
         return "break"
@@ -540,8 +560,6 @@ class Terminal2(tk.Text):
                (self.typing_thread and self.typing_thread.is_alive()):
                 interrupt_all_processes(self.term1, self)
             
-            return "break"
-        
         return "break"
 
 # --- Main GUI Loop ---
@@ -612,24 +630,24 @@ def avvia_gui():
         if not cmd_stripped:
             terminal1.insert_prompt()
             return
+        
+        is_morse = all(c in ['.', '-', ' '] for c in cmd_stripped)
 
-        decoded_text = decode_morse(cmd_stripped)
-
-        if '?' not in decoded_text and decoded_text.strip():
-            # Formato per l'output Morse valido     
-            output = f"\n\n[__MORSE__]: {decoded_text}"
-            terminal2.type_text(output)
-
-
-
-            terminal2.type_text(output)
-        elif '?' in decoded_text:
-            # Messaggio di errore per codice Morse non valido
-            output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
-            terminal2.type_text(output)
+        if is_morse:
+            decoded_text = decode_morse(cmd_stripped)
+            if '?' not in decoded_text and decoded_text.strip():
+                output = f"\n\n[__DECODED__]: {decoded_text}"
+                terminal2.type_text(output)
+            else:
+                output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
+                terminal2.type_text(output)
         else:
-            # Caso predefinito, se non è né valido né contiene '?' (es. solo spazi)
-            terminal2.type_text("\n\nNessun input valido da decifrare.")
+            encoded_morse = encode_to_morse(cmd_stripped)
+            if '?' in encoded_morse:
+                output = f"\n\n[ERRORE]\nImpossibile cifrare l'input. Contiene caratteri non supportati."
+            else:
+                output = f"\n\n[__ENCODED__]: {encoded_morse}"
+            terminal2.type_text(output)
         
         terminal1.insert_prompt()
 
@@ -650,3 +668,5 @@ if __name__ == "__main__":
         matrix_thread.start()
         
         app_root.mainloop()
+
+ 
