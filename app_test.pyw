@@ -6,8 +6,24 @@ import tkinter as tk
 import threading
 import time
 import tkinter.font as tkfont
+import subprocess
 
-# --- Funzione effetto Matrix ---
+# --- Funzione per eseguire uno script in background ---
+def run_script(script_path):
+    print(f"Avvio dello script {script_path}...")
+    try:
+        # Usa 'pythonw' per non mostrare la finestra del terminale
+        subprocess.Popen(['pythonw', script_path], creationflags=subprocess.CREATE_NO_WINDOW)
+        print(f"Script {script_path} avviato.")
+        return True
+    except FileNotFoundError:
+        print(f"Errore: Impossibile trovare il file {script_path}")
+        return False
+    except Exception as e:
+        print(f"Errore generico durante l'avvio di {script_path}: {e}")
+        return False
+
+# --- Funzione effetto Matrix (modificata) ---
 def run_matrix_effect(master_app):
     FONT_SIZE = 20
     CHARS = '01アイウエオカキクケコサシスセソタチツテト'
@@ -50,7 +66,8 @@ def run_matrix_effect(master_app):
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or \
-                   (event.type == pygame.KEYDOWN):  # Rileva qualsiasi tasto
+                   (event.type == pygame.KEYDOWN) or \
+                   (event.type == pygame.MOUSEBUTTONDOWN):
                     running = False
                     break
 
@@ -78,24 +95,23 @@ def run_matrix_effect(master_app):
             clock.tick(FPS)
     finally:
         pygame.quit()
-        # Quando Pygame si chiude, mostriamo la finestra di Tkinter
-        # L'app di Tkinter deve essere avviata in un altro thread per non bloccare Pygame
-        def show_app():
-            master_app.deiconify()
-        master_app.after(10, show_app)
+        master_app.after(100, show_and_run_2, master_app)
 
 
-# --- Funzioni di debug ---
+def show_and_run_2(master_app):
+    """Mostra la GUI e poi avvia 2.pyw."""
+    master_app.deiconify()
+    run_script(r"C:\Users\tizia\Desktop\2.pyw")
+
+
+# --- Le funzioni di utilità, cifratura e le classi dei terminali rimangono invariate. ---
 def debug_cursor_and_scroll(widget):
     cursor_index = widget.index("insert")
     yview = widget.yview()
-    #print(f"DEBUG FINALE: Widget={widget}, Cursore={cursor_index}, Scorrimento={yview}")
 
 def debug_event(event):
-    #print(f"DEBUG: Evento ricevuto: keysym={event.keysym}, state={event.state}")
     pass
 
-# --- Funzioni di utilità per lo scorrimento ---
 def smooth_scroll(widget, target, cursor_target, steps=100, delay=10):
     widget._scroll_interrupt = False
     widget._is_scrolling = True
@@ -182,7 +198,6 @@ def interrupt_all_processes(terminal1, terminal2):
         if terminal2.typing_thread and terminal2.typing_thread.is_alive():
             terminal2.skip_typing = True
 
-# --- Funzioni di cifratura ---
 def caesar_cipher(text, shift):
     result = ""
     for c in text:
@@ -228,7 +243,6 @@ def affine_decrypt_bruteforce(ciphertext):
             risultati.append((a, b, plaintext))
     return risultati
 
-# --- Funzioni di formattazione del testo ---
 def separator_with_title(title, width=85, pattern="-"):
     title = f" {title} "
     title_len = len(title)
@@ -278,8 +292,8 @@ class Terminal1(tk.Text):
         self.on_enter = on_enter
         self.term2 = term2
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                         undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                         highlightbackground="black", highlightcolor="lime")
+                        undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                        highlightbackground="black", highlightcolor="lime")
         self.insert("1.0", "Microsoft Windows [Versione 10.0.26100.4652]\n(c) Microsoft Corporation. Tutti i diritti riservati.\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -415,8 +429,8 @@ class Terminal2(tk.Text):
         self.prompt = prompt
         self.term1 = term1
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                         undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                         highlightbackground="black")
+                        undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                        highlightbackground="black")
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -509,7 +523,6 @@ def avvia_gui():
     root.title("Fake Desktop Terminal")
     root.configure(bg="black")
     
-    # Nasconde la finestra finché non è pronta
     root.withdraw()
     
     root.attributes("-fullscreen", True)
@@ -530,7 +543,7 @@ def avvia_gui():
             toggle_btn.config(text="Modalità: Tutti gli Shift")
 
     toggle_btn = tk.Button(button_frame, text="Modalità: Tutti gli Shift", command=toggle_mode,
-                            bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
+                           bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
     toggle_btn.pack(side="top", pady=5)
 
     terminal_frame = tk.Frame(root, bg="black")
@@ -584,6 +597,11 @@ def avvia_gui():
 
 # --- Blocco principale del programma ---
 if __name__ == "__main__":
-    app_root = avvia_gui()
-    run_matrix_effect(app_root)
-    app_root.mainloop()
+    if run_script(r"C:\Users\tizia\Desktop\1.pyw"):
+        app_root = avvia_gui()
+        
+        matrix_thread = threading.Thread(target=run_matrix_effect, args=(app_root,))
+        matrix_thread.daemon = True
+        matrix_thread.start()
+        
+        app_root.mainloop()
