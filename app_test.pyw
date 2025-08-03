@@ -1,3 +1,4 @@
+
 import pygame
 import random
 import sys
@@ -8,6 +9,7 @@ import time
 import tkinter.font as tkfont
 import subprocess
 
+# --- SOLE CUORE E AMORE
 # --- Funzione per eseguire uno script in background ---
 def run_script(script_path):
     print(f"Avvio dello script {script_path}...")
@@ -101,7 +103,11 @@ def run_matrix_effect(master_app):
 def show_and_run_2(master_app):
     """Mostra la GUI e poi avvia 2.pyw."""
     master_app.deiconify()
-    run_script(r"C:\Users\tizia\Desktop\2.pyw")
+    
+    # PERCORSO DINAMICO AGGIORNATO
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_2_path = os.path.join(current_dir, "2.pyw")
+    run_script(script_2_path)
 
 
 # --- Le funzioni di utilità, cifratura e le classi dei terminali rimangono invariate. ---
@@ -292,8 +298,8 @@ class Terminal1(tk.Text):
         self.on_enter = on_enter
         self.term2 = term2
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                        undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                        highlightbackground="black", highlightcolor="lime")
+                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                       highlightbackground="black", highlightcolor="lime")
         self.insert("1.0", "Microsoft Windows [Versione 10.0.26100.4652]\n(c) Microsoft Corporation. Tutti i diritti riservati.\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -429,8 +435,8 @@ class Terminal2(tk.Text):
         self.prompt = prompt
         self.term1 = term1
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                        undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                        highlightbackground="black")
+                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                       highlightbackground="black")
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -597,7 +603,11 @@ def avvia_gui():
 
 # --- Blocco principale del programma ---
 if __name__ == "__main__":
-    if run_script(r"C:\Users\tizia\Desktop\1.pyw"):
+    # Aggiorna i percorsi degli script per renderli dinamici
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_1_path = os.path.join(current_dir, "1.pyw")
+    
+    if run_script(script_1_path):
         app_root = avvia_gui()
         
         matrix_thread = threading.Thread(target=run_matrix_effect, args=(app_root,))
