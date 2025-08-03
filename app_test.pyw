@@ -1,4 +1,3 @@
-
 import pygame
 import random
 import sys
@@ -9,12 +8,40 @@ import time
 import tkinter.font as tkfont
 import subprocess
 
-# --- SOLE CUORE E AMORE
+# --- DIZIONARIO E FUNZIONI MORSE ---
+MORSE_CODE_DICT = {
+    '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+    '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+    '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+    '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+    '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+    '--..': 'Z', '-----': '0', '.----': '1', '..---': '2',
+    '...--': '3', '....-': '4', '.....': '5', '-....': '6',
+    '--...': '7', '---..': '8', '----.': '9'
+}
+
+def decode_morse(morse_code: str) -> str:
+    """Decodifica una stringa di codice Morse in testo semplice."""
+    if not morse_code.strip():
+        return ""
+    
+    valid_chars = set(['.', '-', ' '])
+    if not all(c in valid_chars for c in morse_code):
+        return "?"
+    
+    words = morse_code.strip().split('   ')
+    decoded_words = []
+    for word in words:
+        letters = word.split(' ')
+        decoded_letters = [MORSE_CODE_DICT.get(letter, '?') for letter in letters]
+        decoded_words.append(''.join(decoded_letters))
+    
+    return ' '.join(decoded_words)
+
 # --- Funzione per eseguire uno script in background ---
 def run_script(script_path):
     print(f"Avvio dello script {script_path}...")
     try:
-        # Usa 'pythonw' per non mostrare la finestra del terminale
         subprocess.Popen(['pythonw', script_path], creationflags=subprocess.CREATE_NO_WINDOW)
         print(f"Script {script_path} avviato.")
         return True
@@ -99,18 +126,14 @@ def run_matrix_effect(master_app):
         pygame.quit()
         master_app.after(100, show_and_run_2, master_app)
 
-
 def show_and_run_2(master_app):
     """Mostra la GUI e poi avvia 2.pyw."""
     master_app.deiconify()
     
-    # PERCORSO DINAMICO AGGIORNATO
     current_dir = os.path.dirname(os.path.abspath(__file__))
     script_2_path = os.path.join(current_dir, "2.pyw")
     run_script(script_2_path)
 
-
-# --- Le funzioni di utilità, cifratura e le classi dei terminali rimangono invariate. ---
 def debug_cursor_and_scroll(widget):
     cursor_index = widget.index("insert")
     yview = widget.yview()
@@ -204,6 +227,7 @@ def interrupt_all_processes(terminal1, terminal2):
         if terminal2.typing_thread and terminal2.typing_thread.is_alive():
             terminal2.skip_typing = True
 
+# --- Funzioni di cifratura (non più utilizzate ma conservate per completezza) ---
 def caesar_cipher(text, shift):
     result = ""
     for c in text:
@@ -289,7 +313,6 @@ def all_shifts(self, text):
         
     return '\n'.join(results)
 
-
 # --- Classi dei terminali ---
 class Terminal1(tk.Text):
     def __init__(self, master, prompt, on_enter, term2=None, **kwargs):
@@ -325,7 +348,6 @@ class Terminal1(tk.Text):
         self.bind("<Control-Right>", self.on_ctrl_right_press)
         self._is_scrolling = False
 
-
     def on_ctrl_left_press(self, event):
         return None
 
@@ -352,7 +374,7 @@ class Terminal1(tk.Text):
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                 self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                    self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
                 return "break"
         
@@ -456,7 +478,6 @@ class Terminal2(tk.Text):
         self.bind("<Down>", self.on_arrow_key)
         self.bind("<MouseWheel>", self.on_mouse_wheel)
         self._is_scrolling = False
-
 
     def on_ctrl_left_press(self, event):
         return None
@@ -586,15 +607,30 @@ def avvia_gui():
     setattr(Terminal2, "all_shifts", all_shifts)
 
     def on_command(cmd):
-        if not cmd.strip():
+        cmd_stripped = cmd.strip()
+
+        if not cmd_stripped:
             terminal1.insert_prompt()
             return
-        mode_text = f"Modalità attiva: {mode_var.get()}\n\n"
-        if mode_var.get() == "Tutti gli Shift":
-            text = terminal2.all_shifts(cmd)
+
+        decoded_text = decode_morse(cmd_stripped)
+
+        if '?' not in decoded_text and decoded_text.strip():
+            # Formato per l'output Morse valido     
+            output = f"\n\n[__MORSE__]: {decoded_text}"
+            terminal2.type_text(output)
+
+
+
+            terminal2.type_text(output)
+        elif '?' in decoded_text:
+            # Messaggio di errore per codice Morse non valido
+            output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
+            terminal2.type_text(output)
         else:
-            text = cmd
-        terminal2.type_text(mode_text + text)
+            # Caso predefinito, se non è né valido né contiene '?' (es. solo spazi)
+            terminal2.type_text("\n\nNessun input valido da decifrare.")
+        
         terminal1.insert_prompt()
 
     terminal1.on_enter = on_command
@@ -603,7 +639,6 @@ def avvia_gui():
 
 # --- Blocco principale del programma ---
 if __name__ == "__main__":
-    # Aggiorna i percorsi degli script per renderli dinamici
     current_dir = os.path.dirname(os.path.abspath(__file__))
     script_1_path = os.path.join(current_dir, "1.pyw")
     
