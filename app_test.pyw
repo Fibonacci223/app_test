@@ -1,4 +1,3 @@
-
 import pygame
 import random
 import sys
@@ -19,7 +18,11 @@ MORSE_CODE_DICT = {
     '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
     '--..': 'Z', '-----': '0', '.----': '1', '..---': '2',
     '...--': '3', '....-': '4', '.....': '5', '-....': '6',
-    '--...': '7', '---..': '8', '----.': '9'
+    '--...': '7', '---..': '8', '----.': '9',
+    '.-.-.-': '.', '--..--': ',', '..--..': '?', '-.-.--': '!',
+    '-..-.': '/', '.--.-.': '@', '---...': ':', '-.-.-.': ';',
+    '-....-': '-', '..-.-.': '+', '...-..-': '$',
+    '-.--.': '(', '-.--.-': ')', '.-..-.': '"'
 }
 
 REVERSE_MORSE_DICT = {value: key for key, value in MORSE_CODE_DICT.items()}
@@ -52,11 +55,10 @@ def encode_to_morse(text: str) -> str:
             if char in REVERSE_MORSE_DICT:
                 morse_word.append(REVERSE_MORSE_DICT[char])
             else:
-                morse_word.append('?')
+                morse_word.append('?') 
         morse_list.append(' '.join(morse_word))
         
     return '   '.join(morse_list)
-
 
 # --- Funzione per eseguire uno script in background ---
 def run_script(script_path):
@@ -219,23 +221,6 @@ def scroll_both_down(event=None):
         
     return "break"
 
-def handle_right_click(text_widget, event, terminal1, prompt_index=None):
-    try:
-        if text_widget.tag_ranges("sel"):
-            selected = text_widget.get("sel.first", "sel.last")
-            text_widget.clipboard_clear()
-            text_widget.clipboard_append(selected)
-        else:
-            clip = text_widget.clipboard_get()
-            if text_widget == terminal1:
-                index = text_widget.index(f"@{event.x},{event.y}")
-                if prompt_index is None or text_widget.compare(index, ">=", prompt_index):
-                    text_widget.insert(index, clip)
-                    text_widget.see("insert")
-    except tk.TclError:
-        pass
-    return "break"
-
 def interrupt_all_processes(terminal1, terminal2):
     if hasattr(terminal1, '_is_scrolling') and terminal1._is_scrolling:
         terminal1._scroll_interrupt = True
@@ -312,26 +297,112 @@ def separator_with_title(title, width=85, pattern="-"):
 
 def all_shifts(self, text):
     results = []
-    text = text.upper()
+    text_processed = ''.join(c for c in text.upper() if c.isalpha() or c == ' ')
+
     colon_pos = len("[Shift 25]") - 10
     colon_pos -= 1
     
-    for shift in range(26):
-        shifted_text = caesar_cipher(text, shift).upper()
-        label = f"[Shift {shift:2d}]"
-        results.append(f"{label.ljust(colon_pos)} : {shifted_text}")
+    if text_processed:
+        for shift in range(26):
+            shifted_text = caesar_cipher(text_processed, shift).upper()
+            label = f"[Shift {shift:2d}]"
+            results.append(f"{label.ljust(colon_pos)} : {shifted_text}")
+            
+        results.append("")
+        atbash_label = "[_ATBASH_] "
+        results.append(f"{atbash_label.ljust(colon_pos)}: {atbash_cipher(text_processed)}")
+        results.append("")
+        results.append(separator_with_title("Affine Cipher - Brute Force"))
         
-    results.append("")
-    atbash_label = "[_ATBASH_] "
-    results.append(f"{atbash_label.ljust(colon_pos)}: {atbash_cipher(text)}")
-    results.append("")
-    results.append(separator_with_title("Affine Cipher - Brute Force"))
-    
-    for a, b, decrypted in affine_decrypt_bruteforce(text):
-        label = f"[A={a:2d}, B={b:2d}]"
-        results.append(f"{label.ljust(colon_pos)} : {decrypted.upper()}")
-        
+        for a, b, decrypted in affine_decrypt_bruteforce(text_processed):
+            label = f"[A={a:2d}, B={b:2d}]"
+            results.append(f"{label.ljust(colon_pos)} : {decrypted.upper()}")
+            
     return '\n'.join(results)
+
+# --- FUNZIONI PER LA DECODIFICA BINARIA, OTTALE E ESADECIMALE (AGGIORNATE) ---
+def decode_from_binary(binary_string: str) -> str:
+    """
+    Decodifica una stringa binaria (contenente 0 e 1) in un numero intero e nel suo carattere ASCII.
+    La funzione ora gestisce anche gli spazi come separatori di byte.
+    """
+    clean_string = binary_string.strip()
+    
+    # Se la stringa contiene spazi, la trattiamo come una serie di byte
+    if ' ' in clean_string:
+        bytes = clean_string.split(' ')
+        decoded_numbers = []
+        decoded_text = ""
+        for b in bytes:
+            try:
+                number = int(b, 2)
+                decoded_numbers.append(str(number))
+                ascii_char = chr(number) if 0 <= number <= 255 else '?'
+                decoded_text += ascii_char
+            except (ValueError, IndexError):
+                return "[ERRORE] : La stringa binaria è mal formattata o contiene byte non validi."
+    
+        return f"[__BINARIO__]: {' '.join(decoded_numbers)} (Testo: {decoded_text})"
+
+    # Se non ci sono spazi, la trattiamo come un unico numero
+    else:
+        try:
+            if not clean_string:
+                return "[ERRORE] : La stringa binaria è vuota."
+            
+            number = int(clean_string, 2)
+            ascii_char = chr(number) if 0 <= number <= 255 else 'N/A'
+            return f"[__BINARIO__]: {number} (Testo: {ascii_char})"
+        except ValueError:
+            return "[ERRORE] : La stringa binaria non è formattata correttamente."
+
+def decode_from_octal(octal_string: str) -> str:
+    """
+    Decodifica una stringa ottale in un numero intero e nel suo carattere ASCII.
+    """
+    try:
+        clean_string = ''.join(c for c in octal_string if c in '01234567')
+        if not clean_string:
+            return "[ERRORE] : La stringa ottale è vuota o non valida."
+        
+        number = int(clean_string, 8)
+        
+        # Aggiungi questa parte per ottenere il carattere ASCII
+        ascii_char = chr(number) if 0 <= number <= 255 else 'N/A'
+        
+        # Modifica qui per includere entrambi nella stringa di output
+        return f"[__ OTTALE__]: {number} (Testo: {ascii_char})"
+    except ValueError:
+        return "[ERRORE] : La stringa ottale non è formattata correttamente."
+
+def decode_from_hex(hex_string: str) -> str:
+    """
+    Decodifica una stringa esadecimale in un numero intero e nel suo carattere ASCII.
+    """
+    clean_string = hex_string.strip()
+    
+    if clean_string.startswith('0x') or clean_string.startswith('0X'):
+        clean_string = clean_string[2:]
+    elif clean_string.startswith('#'):
+        clean_string = clean_string[1:]
+    
+    if not all(c in '0123456789abcdefABCDEF' for c in clean_string):
+        return "[ERRORE] : La stringa esadecimale contiene caratteri non validi."
+    
+    if not clean_string:
+        return "[ERRORE] : La stringa esadecimale è vuota."
+    
+    try:
+        number = int(clean_string, 16)
+        
+        # Aggiungi questa parte per ottenere il carattere ASCII
+        ascii_char = chr(number) if 0 <= number <= 255 else 'N/A'
+        
+        # Modifica qui per includere entrambi nella stringa di output
+        return f"[__ESADECIMALE__]: {number} (Testo: {ascii_char})"
+    except ValueError:
+        return "[ERRORE] : La stringa esadecimale non è formattata correttamente."
+
 
 # --- Classi dei terminali ---
 class Terminal1(tk.Text):
@@ -354,10 +425,13 @@ class Terminal1(tk.Text):
         self.bind("<Button-1>", self.on_click)
         self.bind("<B1-Motion>", self.on_drag)
         self.bind("<Return>", self.on_return)
+        
+        # --- Copia e incolla attivi ---
+        self.bind("<Button-3>", self.paste_from_clipboard)
+        self.bind("<Control-c>", self.copy_selected_text)
+        self.bind("<Control-v>", self.paste_from_clipboard_ctrl_v)
         self.bind("<Control-x>", lambda e: "break")
-        self.bind("<Control-c>", lambda e: None)
-        self.bind("<Control-v>", lambda e: "break")
-        self.bind("<Button-3>", lambda e: handle_right_click(self, e, terminal1=self, prompt_index=self.prompt_index))
+        
         self.mark_set("insert", self.prompt_index)
         self.focus_set()
         self.command_history = []
@@ -379,8 +453,8 @@ class Terminal1(tk.Text):
             sel_start, sel_end = self.index("sel.first"), self.index("sel.last")
             ranges = self.tag_ranges("readonly")
             return any(self.compare(sel_start, "<", ranges[i+1]) and
-                       self.compare(sel_end, ">", ranges[i])
-                       for i in range(0, len(ranges), 2))
+                               self.compare(sel_end, ">", ranges[i])
+                               for i in range(0, len(ranges), 2))
         except tk.TclError:
             return False
 
@@ -394,10 +468,12 @@ class Terminal1(tk.Text):
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                    self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                     self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
-                return "break"
-        
+            else:        
+                 self.insert("insert", " ")
+            return "break"
+
         if event.keysym == "Up":
             self.show_previous_command()
             return "break"
@@ -470,6 +546,40 @@ class Terminal1(tk.Text):
         self.delete(self.prompt_index, "insert lineend")
         self.insert(self.prompt_index, text)
         self.mark_set("insert", self.index(f"{self.prompt_index}+{len(text)}c"))
+    
+    def paste_from_clipboard(self, event):
+        try:
+            clipboard_text = self.clipboard_get()
+            index = self.index(f"@{event.x},{event.y}")
+            if self.compare(index, ">=", self.prompt_index):
+                self.insert(index, clipboard_text)
+                self.see("insert")
+        except tk.TclError:
+            pass
+        return "break"
+
+    def paste_from_clipboard_ctrl_v(self, event):
+        try:
+            clipboard_text = self.clipboard_get()
+            index = self.index("insert")
+            if self.compare(index, ">=", self.prompt_index):
+                self.insert(index, clipboard_text)
+                self.see("insert")
+        except tk.TclError:
+            pass
+        return "break"
+
+
+    def copy_selected_text(self, event):
+        try:
+            selected_text = self.get("sel.first", "sel.last")
+            if selected_text:
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+        except tk.TclError:
+            pass
+        return "break"
+    
 
 class Terminal2(tk.Text):
     def __init__(self, master, prompt, term1=None, **kwargs):
@@ -482,47 +592,26 @@ class Terminal2(tk.Text):
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
-        self.tag_config("readonly", foreground="lime")
         self.mark_set("insert", self.prompt_index)
         self.typing_thread = None
         self.skip_typing = False
+        
+        # --- Incolla disabilitato, Copia attivo ---
         self.bind("<Key>", self.on_key_terminal2)
-        self.bind("<Control-v>", lambda e: "break")
-        self.bind("<Button-2>", lambda e: "break")
-        self.bind("<Button-3>", lambda e: handle_right_click(self, e, terminal1=None))
-        self.bind("<Control-Up>", scroll_both_up)
-        self.bind("<Control-Down>", scroll_both_down)
-        self.bind("<Control-Left>", self.on_ctrl_left_press)
-        self.bind("<Control-Right>", self.on_ctrl_right_press)
-        self.bind("<Up>", self.on_arrow_key)
-        self.bind("<Down>", self.on_arrow_key)
-        self.bind("<MouseWheel>", self.on_mouse_wheel)
+        self.bind("<Control-x>", lambda e: "break")
+        
+        self.bind("<Button-3>", lambda e: "break")  # Blocco incolla con tasto destro
+        self.bind("<Control-v>", lambda e: "break") # Blocco incolla con Ctrl+V
+        self.bind("<Control-c>", self.copy_selected_text) # Copia attivo
+
         self._is_scrolling = False
+        self.history = []
+        self.history_index = None
+        self.bind("<Return>", self.on_enter)
 
-    def on_ctrl_left_press(self, event):
-        return None
-
-    def on_ctrl_right_press(self, event):
-        return None
-    
-    def on_arrow_key(self, event):
-        debug_event(event)
-        if event.keysym == "Up":
-            self.yview_scroll(-1, "units")
-        elif event.keysym == "Down":
-            self.yview_scroll(1, "units")
-        self.see("insert")
-        debug_cursor_and_scroll(self)
+    def on_key_terminal2(self, event):
         return "break"
 
-    def on_mouse_wheel(self, event):
-        if event.delta > 0:
-            self.yview_scroll(-1, "units")
-        else:
-            self.yview_scroll(1, "units")
-        debug_cursor_and_scroll(self)
-        return "break"
-    
     def clear_and_insert_prompt(self):
         self.config(state="normal")
         self.delete("1.0", "end")
@@ -536,6 +625,7 @@ class Terminal2(tk.Text):
             self.skip_typing = True
         self.skip_typing = False
         self.clear_and_insert_prompt()
+
         def run_typing():
             self.config(state="normal")
             for c in text:
@@ -548,19 +638,118 @@ class Terminal2(tk.Text):
                 self.see("end")
                 time.sleep(delay)
             self.mark_set("insert", self.index("end-1c"))
-        self.typing_thread = threading.Thread(target=run_typing)
-        self.typing_thread.daemon = True
+        self.typing_thread = threading.Thread(target=run_typing, daemon=True)
         self.typing_thread.start()
-    
-    def on_key_terminal2(self, event):
-        debug_event(event)
-        if event.keysym == "space":
-            if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
-               (self.term1 and hasattr(self.term1, '_is_scrolling') and self.term1._is_scrolling) or \
-               (self.typing_thread and self.typing_thread.is_alive()):
-                interrupt_all_processes(self.term1, self)
+
+    def get_current_line(self):
+        return self.get(self.prompt_index, "end-1c")
+
+    def on_enter(self, event):
+        input_text = self.get_current_line().strip()
+        if not input_text:
+            return "break"
+
+        self.history.append(input_text)
+        self.history_index = len(self.history)
+        self.insert("end", '\n')
+
+        try:
+            if input_text.startswith("0b"):
+                bits = input_text[2:].replace(" ", "")
+                if len(bits) % 8 == 0:
+                    ascii_output = ''.join(chr(int(bits[i:i+8], 2)) for i in range(0, len(bits), 8))
+                    value = int(bits, 2)
+                else:
+                    value = int(bits, 2)
+                    ascii_output = chr(value) if 0 <= value <= 255 else ''
+
+                self.insert("end", f"Binario: {bits}\n")
+                self.insert("end", f"Decimale: {value}\n")
+                if ascii_output:
+                    self.insert("end", f"ASCII: {ascii_output}\n")
+
+            elif input_text.startswith("0o"):
+                value = int(input_text[2:], 8)
+                ascii_output = chr(value) if 0 <= value <= 255 else ''
+                self.insert("end", f"Ottale: {input_text[2:]}\n")
+                self.insert("end", f"Decimale: {value}\n")
+                if ascii_output:
+                    self.insert("end", f"ASCII: {ascii_output}\n")
+
+            elif input_text.startswith("0x"):
+                value = int(input_text[2:], 16)
+                ascii_output = chr(value) if 0 <= value <= 255 else ''
+                self.insert("end", f"Esadecimale: {input_text[2:]}\n")
+                self.insert("end", f"Decimale: {value}\n")
+                if ascii_output:
+                    self.insert("end", f"ASCII: {ascii_output}\n")
+
+            elif all(c in "01" for c in input_text):  # binario senza 0b
+                bits = input_text.replace(" ", "")
+                if len(bits) % 8 == 0:
+                    ascii_output = ''.join(chr(int(bits[i:i+8], 2)) for i in range(0, len(bits), 8))
+                    value = int(bits, 2)
+                else:
+                    value = int(bits, 2)
+                    ascii_output = chr(value) if 0 <= value <= 255 else ''
+                self.insert("end", f"Binario: {bits}\n")
+                self.insert("end", f"Decimale: {value}\n")
+                if ascii_output:
+                    self.insert("end", f"ASCII: {ascii_output}\n")
+
+            elif all(c in "01234567" for c in input_text):  # ottale senza 0o
+                value = int(input_text, 8)
+                ascii_output = chr(value) if 0 <= value <= 255 else ''
+                self.insert("end", f"Ottale: {input_text}\n")
+                self.insert("end", f"Decimale: {value}\n")
+                if ascii_output:
+                    self.insert("end", f"ASCII: {ascii_output}\n")
+
+            elif input_text.isdigit():  # decimale puro
+                value = int(input_text)
+                ascii_output = chr(value) if 0 <= value <= 255 else ''
+                self.insert("end", f"Decimale: {input_text}\n")
+                if ascii_output:
+                    self.insert("end", f"ASCII: {ascii_output}\n")
+
+            else:  # trattiamo come stringa testuale -> stampa ASCII e codifiche
+                ascii_output = input_text
+                self.insert("end", f"Testo: {input_text}\n")
+                self.insert("end", f"ASCII codes: {' '.join(str(ord(c)) for c in input_text)}\n")
+                self.insert("end", f"Binario: {' '.join(format(ord(c), '08b') for c in input_text)}\n")
+                self.insert("end", f"Ottale: {' '.join(format(ord(c), '03o') for c in input_text)}\n")
+                self.insert("end", f"Esadecimale: {' '.join(format(ord(c), '02x') for c in input_text)}\n")
+                self.insert("end", self.prompt)
+                self.see("end")
+                return "break"
+
+            self.insert("end", self.prompt)
+            self.see("end")
+
+        except ValueError:
+            self.insert("end", "Errore: formato non valido\n")
+            self.insert("end", self.prompt)
+            self.see("end")
             
+
         return "break"
+
+    def paste_from_clipboard(self, event):
+        return "break"
+
+    def paste_from_clipboard_ctrl_v(self, event):
+        return "break"
+
+    def copy_selected_text(self, event):
+        try:
+            selected_text = self.get("sel.first", "sel.last")
+            if selected_text:
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+        except tk.TclError:
+            pass
+        return "break"
+
 
 # --- Main GUI Loop ---
 def avvia_gui():
@@ -624,6 +813,32 @@ def avvia_gui():
 
     setattr(Terminal2, "all_shifts", all_shifts)
 
+    def is_hex_string(s):
+        """Controlla se una stringa è un numero esadecimale valido."""
+        s = s.strip().lower()
+        if s.startswith('0x'):
+            s = s[2:]
+        elif s.startswith('#'):
+            s = s[1:]
+        
+        if not s:
+            return False
+
+        return all(c in '0123456789abcdef' for c in s)
+
+    def is_binary_string(s):
+        """
+        Controlla se una stringa è un numero binario valido,
+        anche se contiene spazi che vengono rimossi.
+        """
+        clean_s = s.strip().replace(" ", "")
+        return all(c in '01' for c in clean_s) and clean_s
+
+    def is_octal_string(s):
+        """Controlla se una stringa è un numero ottale valido."""
+        clean_s = s.strip()
+        return all(c in '01234567' for c in clean_s) and any(c in '01234567' for c in clean_s)
+    
     def on_command(cmd):
         cmd_stripped = cmd.strip()
 
@@ -631,42 +846,39 @@ def avvia_gui():
             terminal1.insert_prompt()
             return
         
-        is_morse = all(c in ['.', '-', ' '] for c in cmd_stripped)
-
-        if is_morse:
-            decoded_text = decode_morse(cmd_stripped)
-            if '?' not in decoded_text and decoded_text.strip():
-                output = f"\n\n[__DECODED__]: {decoded_text}"
-                terminal2.type_text(output)
-            else:
-                output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
-                terminal2.type_text(output)
+        # Logica di decodifica aggiornata
+        if is_binary_string(cmd_stripped):
+            decoded_output = decode_from_binary(cmd_stripped)
+            terminal2.type_text(f"\n\n{decoded_output}")
+        elif is_octal_string(cmd_stripped):
+            decoded_output = decode_from_octal(cmd_stripped)
+            terminal2.type_text(f"\n\n{decoded_output}")
+        elif is_hex_string(cmd_stripped):
+            decoded_output = decode_from_hex(cmd_stripped)
+            terminal2.type_text(f"\n\n{decoded_output}")
         else:
-            encoded_morse = encode_to_morse(cmd_stripped)
-            if '?' in encoded_morse:
-                output = f"\n\n[ERRORE]\nImpossibile cifrare l'input. Contiene caratteri non supportati."
+            # Se non è un numero, procedi con la logica Morse e dei cifrari
+            is_morse = all(c in ['.', '-', ' '] for c in cmd_stripped)
+            if is_morse:
+                decoded_text = decode_morse(cmd_stripped)
+                if '?' not in decoded_text and decoded_text.strip():
+                    output = f"\n\n[__DECODED__]: {decoded_text}"
+                    terminal2.type_text(output)
+                else:
+                    output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
+                    terminal2.type_text(output)
             else:
-                output = f"\n\n[__ENCODED__]: {encoded_morse}"
-            terminal2.type_text(output)
-        
+                output_ciphers = all_shifts(terminal2, cmd_stripped)
+                terminal2.type_text(f"\n\n{output_ciphers}")
+
         terminal1.insert_prompt()
 
     terminal1.on_enter = on_command
 
-    return root
+    return terminal1, terminal2, root, terminal_frame, button_frame
 
-# --- Blocco principale del programma ---
-if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    script_1_path = os.path.join(current_dir, "1.pyw")
-    
-    if run_script(script_1_path):
-        app_root = avvia_gui()
-        
-        matrix_thread = threading.Thread(target=run_matrix_effect, args=(app_root,))
-        matrix_thread.daemon = True
-        matrix_thread.start()
-        
-        app_root.mainloop()
-
- 
+if __name__ == '__main__':
+    app = avvia_gui()[2]
+    thread = threading.Thread(target=run_matrix_effect, args=(app,), daemon=True)
+    thread.start()
+    app.mainloop()
