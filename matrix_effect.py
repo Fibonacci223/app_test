@@ -1,12 +1,5 @@
-# matrix_effect.py
-import pygame
-import random
-import sys
-import os
-
-# Funzione per l'effetto "Matrix"
+# --- Funzione effetto Matrix (modificata) ---
 def run_matrix_effect(master_app):
-    # Costanti per l'effetto Matrix
     FONT_SIZE = 20
     CHARS = '01アイウエオカキクケコサシスセソタチツテト'
     FPS = 60
@@ -21,7 +14,6 @@ def run_matrix_effect(master_app):
     ]
 
     try:
-        # Inizializza Pygame e la finestra a schermo intero
         pygame.init()
         info = pygame.display.Info()
         WIDTH, HEIGHT = info.current_w, info.current_h
@@ -31,7 +23,6 @@ def run_matrix_effect(master_app):
         font = pygame.font.SysFont("consolas", FONT_SIZE, bold=True)
         columns = int(WIDTH / FONT_SIZE)
 
-        # Crea gli stream di caratteri
         streams = []
         for i in range(columns):
             x = i * FONT_SIZE
@@ -46,10 +37,8 @@ def run_matrix_effect(master_app):
                 'chars': [random.choice(CHARS) for _ in range(TRAIL_LENGTH)],
             })
 
-        # Ciclo principale dell'effetto
         running = True
         while running:
-            # Gestisce gli eventi per uscire
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or \
                    (event.type == pygame.KEYDOWN) or \
@@ -57,10 +46,8 @@ def run_matrix_effect(master_app):
                     running = False
                     break
 
-            # Sfondo nero
             screen.fill((0, 0, 0))
 
-            # Disegna gli stream
             for stream in streams:
                 x = stream['x']
                 y = stream['y']
@@ -71,25 +58,16 @@ def run_matrix_effect(master_app):
                     char_surface = font.render(char, True, color)
                     screen.blit(char_surface, (x, y - i * FONT_SIZE))
 
-                # Aggiorna la posizione dello stream
                 stream['y'] += stream['speed']
 
-                # Resetta lo stream se esce dallo schermo
                 if stream['y'] - stream['length'] * FONT_SIZE > HEIGHT:
                     stream['y'] = random.randint(-HEIGHT // 2, 0)
                     stream['speed'] = random.randint(4, 10)
                     stream['length'] = random.randint(6, TRAIL_LENGTH)
                     stream['chars'] = [random.choice(CHARS) for _ in range(TRAIL_LENGTH)]
 
-            # Aggiorna lo schermo e il clock
             pygame.display.flip()
             clock.tick(FPS)
     finally:
-        # Chiudi Pygame e mostra la GUI
         pygame.quit()
         master_app.after(100, show_and_run_2, master_app)
-
-def show_and_run_2(master_app):
-    # Questa funzione deve essere inclusa nel file matrix_effect.py se vuoi mantenerla
-    # ma è più logico che risieda nel file principale
-    pass

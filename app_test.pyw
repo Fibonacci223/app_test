@@ -1,4 +1,3 @@
-
 import pygame
 import random
 import sys
@@ -403,8 +402,8 @@ class Terminal1(tk.Text):
         self.on_enter = on_enter
         self.term2 = term2
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                         undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                         highlightbackground="black", highlightcolor="lime")
+                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                       highlightbackground="black", highlightcolor="lime")
         self.insert("1.0", "Microsoft Windows [Versione 10.0.26100.4652]\n(c) Microsoft Corporation. Tutti i diritti riservati.\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -416,6 +415,7 @@ class Terminal1(tk.Text):
         self.bind("<Button-1>", self.on_click)
         self.bind("<B1-Motion>", self.on_drag)
         self.bind("<Return>", self.on_return)
+        self.bind("<Button-3>", self.on_right_click) # <--- NUOVA RIGA
 
         self.mark_set("insert", self.prompt_index)
         self.focus_set()
@@ -430,10 +430,27 @@ class Terminal1(tk.Text):
             sel_start, sel_end = self.index("sel.first"), self.index("sel.last")
             ranges = self.tag_ranges("readonly")
             return any(self.compare(sel_start, "<", ranges[i+1]) and
-                               self.compare(sel_end, ">", ranges[i])
-                               for i in range(0, len(ranges), 2))
+                                   self.compare(sel_end, ">", ranges[i])
+                                   for i in range(0, len(ranges), 2))
         except tk.TclError:
             return False
+
+    def on_right_click(self, event):
+        # Se c'è una selezione attiva, copia il testo
+        try:
+            if self.tag_ranges("sel"):
+                self.event_generate("<<Copy>>")
+        except tk.TclError:
+            pass
+
+        # Se non c'è una selezione, incolla il testo
+        try:
+            text = self.clipboard_get()
+            if self.compare(self.index("insert"), ">=", self.prompt_index):
+                self.insert(self.index("insert"), text)
+        except tk.TclError:
+            pass
+        return "break"
 
     def on_key(self, event):
         if event.keysym in ("Left", "Right", "Prior", "Next", "Home", "End"):
@@ -445,7 +462,7 @@ class Terminal1(tk.Text):
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                      self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                     self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
             else:
                 self.insert("insert", " ")
@@ -531,17 +548,16 @@ class Terminal2(tk.Text):
         self.prompt = prompt
         self.term1 = term1
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                         undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                         highlightbackground="black")
+                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                       highlightbackground="black")
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
         self.mark_set("insert", self.prompt_index)
         self.typing_thread = None
         self.skip_typing = False
-
-        # --- Incolla disabilitato, Copia attivo ---
         self.bind("<Key>", self.on_key_terminal2)
+        self.bind("<Button-3>", self.on_right_click) # <--- NUOVA RIGA
 
         self._is_scrolling = False
         self.history = []
@@ -549,7 +565,15 @@ class Terminal2(tk.Text):
         self.bind("<Return>", self.on_enter)
         self.bind("<Control-Up>", scroll_both_up)
         self.bind("<Control-Down>", scroll_both_down)
-
+        
+    def on_right_click(self, event):
+        # Copia il testo se c'è una selezione attiva.
+        try:
+            if self.tag_ranges("sel"):
+                self.event_generate("<<Copy>>")
+        except tk.TclError:
+            pass
+        return "break"
 
     def on_key_terminal2(self, event):
         return "break"
@@ -702,7 +726,7 @@ def avvia_gui():
             toggle_btn.config(text="Modalità: Tutti gli Shift")
 
     toggle_btn = tk.Button(button_frame, text="Modalità: Tutti gli Shift", command=toggle_mode,
-                             bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
+                           bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
     toggle_btn.pack(side="top", pady=5)
 
     terminal_frame = tk.Frame(root, bg="black")
@@ -813,4 +837,3 @@ if __name__ == '__main__':
     thread = threading.Thread(target=run_matrix_effect, args=(app,), daemon=True)
     thread.start()
     app.mainloop()
- 
