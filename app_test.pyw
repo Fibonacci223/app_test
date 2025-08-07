@@ -8,6 +8,7 @@ import time
 import tkinter.font as tkfont
 import subprocess
 import re
+from matrix_effect import run_matrix_effect
 
 # --- DIZIONARIO E FUNZIONI MORSE ---
 MORSE_CODE_DICT = {
@@ -32,6 +33,9 @@ def decode_morse(morse_code: str) -> str:
     if not morse_code.strip():
         return ""
 
+    # Sostituisci tutti gli spazi non standard con spazi normali
+    morse_code = morse_code.replace('\u00a0', ' ')
+
     valid_chars = set(['.', '-', ' '])
     if not all(c in valid_chars for c in morse_code):
         return "?"
@@ -48,7 +52,6 @@ def decode_morse(morse_code: str) -> str:
 def encode_to_morse(text: str) -> str:
     """Cifra una stringa di testo in codice Morse."""
     morse_list = []
-
     for word in text.upper().split():
         morse_word = []
         for char in word:
@@ -58,6 +61,7 @@ def encode_to_morse(text: str) -> str:
                 morse_word.append('?')
         morse_list.append(' '.join(morse_word))
 
+    # Usa tre spazi per separare le parole
     return '   '.join(morse_list)
 
 # --- Funzione per eseguire uno script in background ---
@@ -73,80 +77,6 @@ def run_script(script_path):
     except Exception as e:
         print(f"Errore generico durante l'avvio di {script_path}: {e}")
         return False
-
-# --- Funzione effetto Matrix (modificata) ---
-def run_matrix_effect(master_app):
-    FONT_SIZE = 20
-    CHARS = '01アイウエオカキクケコサシスセソタチツテト'
-    FPS = 60
-    TRAIL_LENGTH = 10
-    TRAIL_COLORS = [
-        (180, 255, 180),
-        (100, 255, 100),
-        (0, 200, 0),
-        (0, 150, 0),
-        (0, 100, 0),
-        (0, 50, 0),
-    ]
-
-    try:
-        pygame.init()
-        info = pygame.display.Info()
-        WIDTH, HEIGHT = info.current_w, info.current_h
-        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
-        pygame.display.set_caption("Matrix Effect PRO")
-        clock = pygame.time.Clock()
-        font = pygame.font.SysFont("consolas", FONT_SIZE, bold=True)
-        columns = int(WIDTH / FONT_SIZE)
-
-        streams = []
-        for i in range(columns):
-            x = i * FONT_SIZE
-            y = random.randint(-HEIGHT, 0)
-            speed = random.randint(4, 10)
-            length = random.randint(8, TRAIL_LENGTH)
-            streams.append({
-                'x': x,
-                'y': y,
-                'speed': speed,
-                'length': length,
-                'chars': [random.choice(CHARS) for _ in range(TRAIL_LENGTH)],
-            })
-
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT or \
-                   (event.type == pygame.KEYDOWN) or \
-                   (event.type == pygame.MOUSEBUTTONDOWN):
-                    running = False
-                    break
-
-            screen.fill((0, 0, 0))
-
-            for stream in streams:
-                x = stream['x']
-                y = stream['y']
-                for i in range(stream['length']):
-                    char = random.choice(CHARS) if random.random() > 0.9 else stream['chars'][i % len(stream['chars'])]
-                    color_index = i if i < len(TRAIL_COLORS) else -1
-                    color = TRAIL_COLORS[color_index]
-                    char_surface = font.render(char, True, color)
-                    screen.blit(char_surface, (x, y - i * FONT_SIZE))
-
-                stream['y'] += stream['speed']
-
-                if stream['y'] - stream['length'] * FONT_SIZE > HEIGHT:
-                    stream['y'] = random.randint(-HEIGHT // 2, 0)
-                    stream['speed'] = random.randint(4, 10)
-                    stream['length'] = random.randint(6, TRAIL_LENGTH)
-                    stream['chars'] = [random.choice(CHARS) for _ in range(TRAIL_LENGTH)]
-
-            pygame.display.flip()
-            clock.tick(FPS)
-    finally:
-        pygame.quit()
-        master_app.after(100, show_and_run_2, master_app)
 
 def show_and_run_2(master_app):
     """Mostra la GUI e poi avvia 2.pyw."""
@@ -430,8 +360,8 @@ class Terminal1(tk.Text):
             sel_start, sel_end = self.index("sel.first"), self.index("sel.last")
             ranges = self.tag_ranges("readonly")
             return any(self.compare(sel_start, "<", ranges[i+1]) and
-                                   self.compare(sel_end, ">", ranges[i])
-                                   for i in range(0, len(ranges), 2))
+                                         self.compare(sel_end, ">", ranges[i])
+                                         for i in range(0, len(ranges), 2))
         except tk.TclError:
             return False
 
@@ -462,7 +392,7 @@ class Terminal1(tk.Text):
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                     self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                          self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
             else:
                 self.insert("insert", " ")
@@ -700,140 +630,132 @@ class Terminal2(tk.Text):
         return "break"
 
 
-# --- Main GUI Loop ---
-def avvia_gui():
+# --- Funzione per avviare l'app in modo sequenziale ---
+def start_app():
     root = tk.Tk()
     root.title("Fake Desktop Terminal")
     root.configure(bg="black")
+    root.withdraw()  # Nascondi la finestra principale
 
-    root.withdraw()
+    # Esegui l'effetto Matrix e attendi l'autenticazione
+    authenticated = run_matrix_effect(root)
 
-    root.attributes("-fullscreen", True)
+    if authenticated:
+        print("Autenticazione riuscita, avvio della GUI...")
+        # Se l'autenticazione ha successo, mostra la GUI
+        root.deiconify()  
+        root.attributes("-fullscreen", True)
 
-    PROMPT1 = "Terminale1@fakedesktop:~$ "
-    PROMPT2 = "Terminale2@fakedesktop:~$ "
+        PROMPT1 = "Terminale1@fakedesktop:~$ "
+        PROMPT2 = "Terminale2@fakedesktop:~$ "
 
-    button_frame = tk.Frame(root, bg="black")
-    button_frame.pack(side="top", fill="x", pady=5)
+        button_frame = tk.Frame(root, bg="black")
+        button_frame.pack(side="top", fill="x", pady=5)
 
-    mode_var = tk.StringVar(value="Tutti gli Shift")
-    def toggle_mode():
-        if mode_var.get() == "Tutti gli Shift":
-            mode_var.set("Modalità Intelligente")
-            toggle_btn.config(text="Modalità: Modalità Intelligente")
-        else:
-            mode_var.set("Tutti gli Shift")
-            toggle_btn.config(text="Modalità: Tutti gli Shift")
+        mode_var = tk.StringVar(value="Tutti gli Shift")
+        def toggle_mode():
+            if mode_var.get() == "Tutti gli Shift":
+                mode_var.set("Modalità Intelligente")
+                toggle_btn.config(text="Modalità: Modalità Intelligente")
+            else:
+                mode_var.set("Tutti gli Shift")
+                toggle_btn.config(text="Modalità: Tutti gli Shift")
 
-    toggle_btn = tk.Button(button_frame, text="Modalità: Tutti gli Shift", command=toggle_mode,
-                           bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
-    toggle_btn.pack(side="top", pady=5)
+        toggle_btn = tk.Button(button_frame, text="Modalità: Tutti gli Shift", command=toggle_mode,
+                               bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
+        toggle_btn.pack(side="top", pady=5)
 
-    terminal_frame = tk.Frame(root, bg="black")
-    terminal_frame.pack(side="top", fill="both", expand=True)
+        terminal_frame = tk.Frame(root, bg="black")
+        terminal_frame.pack(side="top", fill="both", expand=True)
 
-    # --- SPOSTATO QUI: Definizione delle funzioni di switching
-    def switch_to_term1(event=None):
+        def switch_to_term1(event=None):
+            terminal1.focus_set()
+            terminal1.config(highlightbackground="lime")
+            terminal2.config(highlightbackground="black")
+            return "break"
+
+        def switch_to_term2(event=None):
+            terminal2.focus_set()
+            terminal2.config(highlightbackground="lime")
+            terminal1.config(highlightbackground="black")
+            return "break"
+            
+        terminal1 = Terminal1(terminal_frame, PROMPT1, None)
+        terminal2 = Terminal2(terminal_frame, PROMPT2, terminal1)
+        terminal1.term2 = terminal2
+        terminal1.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+        terminal2.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+
         terminal1.focus_set()
         terminal1.config(highlightbackground="lime")
         terminal2.config(highlightbackground="black")
-        return "break"
+        
+        terminal1.bind("<Control-Left>", switch_to_term1)
+        terminal1.bind("<Control-Right>", switch_to_term2)
+        terminal2.bind("<Control-Left>", switch_to_term1)
+        terminal2.bind("<Control-Right>", switch_to_term2)
+        
+        terminal1.bind("<FocusIn>", switch_to_term1)
+        terminal2.bind("<FocusIn>", switch_to_term2)
 
-    def switch_to_term2(event=None):
-        terminal2.focus_set()
-        terminal2.config(highlightbackground="lime")
-        terminal1.config(highlightbackground="black")
-        return "break"
-    # ---
+        setattr(Terminal2, "all_shifts", all_shifts)
 
-    terminal1 = Terminal1(terminal_frame, PROMPT1, None)
-    terminal2 = Terminal2(terminal_frame, PROMPT2, terminal1)
-    terminal1.term2 = terminal2
-    terminal1.pack(side="left", fill="both", expand=True, padx=5, pady=5)
-    terminal2.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+        def is_hex_string(s):
+            s = s.strip().lower()
+            if s.startswith('0x'):
+                s = s[2:]
+            elif s.startswith('#'):
+                s = s[1:]
+            if not s:
+                return False
+            return all(c in '0123456789abcdef' for c in s)
 
-    terminal1.focus_set()
-    terminal1.config(highlightbackground="lime")
-    terminal2.config(highlightbackground="black")
+        def is_binary_string(s):
+            clean_s = s.strip().replace(" ", "")
+            return all(c in '01' for c in clean_s) and clean_s
 
-    # --- SPOSTATO QUI: Binding delle funzioni ai terminali
-    terminal1.bind("<Control-Left>", switch_to_term1)
-    terminal1.bind("<Control-Right>", switch_to_term2)
-    terminal2.bind("<Control-Left>", switch_to_term1)
-    terminal2.bind("<Control-Right>", switch_to_term2)
-    # ---
-    
-    terminal1.bind("<FocusIn>", switch_to_term1)
-    terminal2.bind("<FocusIn>", switch_to_term2)
+        def is_octal_string(s):
+            clean_s = s.strip()
+            return all(c in '01234567' for c in clean_s) and any(c in '01234567' for c in clean_s)
 
-    setattr(Terminal2, "all_shifts", all_shifts)
+        def on_command(cmd):
+            cmd_stripped = cmd.strip()
+            if not cmd_stripped:
+                terminal1.insert_prompt()
+                return
 
-    def is_hex_string(s):
-        """Controlla se una stringa è un numero esadecimale valido."""
-        s = s.strip().lower()
-        if s.startswith('0x'):
-            s = s[2:]
-        elif s.startswith('#'):
-            s = s[1:]
-
-        if not s:
-            return False
-
-        return all(c in '0123456789abcdef' for c in s)
-
-    def is_binary_string(s):
-        """
-        Controlla se una stringa è un numero binario valido,
-        anche se contiene spazi che vengono rimossi.
-        """
-        clean_s = s.strip().replace(" ", "")
-        return all(c in '01' for c in clean_s) and clean_s
-
-    def is_octal_string(s):
-        """Controlla se una stringa è un numero ottale valido."""
-        clean_s = s.strip()
-        return all(c in '01234567' for c in clean_s) and any(c in '01234567' for c in clean_s)
-
-    def on_command(cmd):
-        cmd_stripped = cmd.strip()
-
-        if not cmd_stripped:
-            terminal1.insert_prompt()
-            return
-
-        # Logica di decodifica aggiornata
-        if is_binary_string(cmd_stripped):
-            decoded_output = decode_from_binary(cmd_stripped)
-            terminal2.type_text(f"\n\n{decoded_output}")
-        elif is_octal_string(cmd_stripped):
-            decoded_output = decode_from_octal(cmd_stripped)
-            terminal2.type_text(f"\n\n{decoded_output}")
-        elif is_hex_string(cmd_stripped):
-            decoded_output = decode_from_hex(cmd_stripped)
-            terminal2.type_text(f"\n\n{decoded_output}")
-        else:
-            # Se non è un numero, procedi con la logica Morse e dei cifrari
-            is_morse = all(c in ['.', '-', ' '] for c in cmd_stripped)
-            if is_morse:
-                decoded_text = decode_morse(cmd_stripped)
-                if '?' not in decoded_text and decoded_text.strip():
-                    output = f"\n\n[__DECODED__]: {decoded_text}"
-                    terminal2.type_text(output)
-                else:
-                    output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
-                    terminal2.type_text(output)
+            if is_binary_string(cmd_stripped):
+                decoded_output = decode_from_binary(cmd_stripped)
+                terminal2.type_text(f"\n\n{decoded_output}")
+            elif is_octal_string(cmd_stripped):
+                decoded_output = decode_from_octal(cmd_stripped)
+                terminal2.type_text(f"\n\n{decoded_output}")
+            elif is_hex_string(cmd_stripped):
+                decoded_output = decode_from_hex(cmd_stripped)
+                terminal2.type_text(f"\n\n{decoded_output}")
             else:
-                output_ciphers = all_shifts(terminal2, cmd_stripped)
-                terminal2.type_text(f"\n\n{output_ciphers}")
+                is_morse = all(c in ['.', '-', ' '] for c in cmd_stripped)
+                if is_morse:
+                    decoded_text = decode_morse(cmd_stripped)
+                    if '?' not in decoded_text and decoded_text.strip():
+                        output = f"\n\n[__DECODED__]: {decoded_text}"
+                        terminal2.type_text(output)
+                    else:
+                        output = f"\n\n[ERRORE]\nCodice Morse non valido o contenente caratteri non riconosciuti."
+                        terminal2.type_text(output)
+                else:
+                    output_ciphers = all_shifts(terminal2, cmd_stripped)
+                    terminal2.type_text(f"\n\n{output_ciphers}")
+            terminal1.insert_prompt()
 
-        terminal1.insert_prompt()
+        terminal1.on_enter = on_command
+        
+        root.mainloop()
 
-    terminal1.on_enter = on_command
-
-    return terminal1, terminal2, root, terminal_frame, button_frame
+    else:
+        print("Autenticazione fallita o utente ha annullato.")
+        root.destroy()
+        sys.exit()
 
 if __name__ == '__main__':
-    app = avvia_gui()[2]
-    thread = threading.Thread(target=run_matrix_effect, args=(app,), daemon=True)
-    thread.start()
-    app.mainloop()
+    start_app()
