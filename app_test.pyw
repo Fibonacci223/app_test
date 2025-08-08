@@ -33,7 +33,6 @@ def decode_morse(morse_code: str) -> str:
     if not morse_code.strip():
         return ""
 
-    # Sostituisci tutti gli spazi non standard con spazi normali
     morse_code = morse_code.replace('\u00a0', ' ')
 
     valid_chars = set(['.', '-', ' '])
@@ -61,21 +60,20 @@ def encode_to_morse(text: str) -> str:
                 morse_word.append('?')
         morse_list.append(' '.join(morse_word))
 
-    # Usa tre spazi per separare le parole
-    return '   '.join(morse_list)
+    return '    '.join(morse_list)
 
 # --- Funzione per eseguire uno script in background ---
 def run_script(script_path):
-    print(f"Avvio dello script {script_path}...")
+    print(f"DEBUG: TENTATIVO DI AVVIARE LO SCRIPT: {script_path}")
     try:
         subprocess.Popen(['pythonw', script_path], creationflags=subprocess.CREATE_NO_WINDOW)
-        print(f"Script {script_path} avviato.")
+        print(f"DEBUG: Script {script_path} avviato con successo.")
         return True
     except FileNotFoundError:
-        print(f"Errore: Impossibile trovare il file {script_path}")
+        print(f"ERRORE DEBUG: File non trovato per lo script {script_path}")
         return False
     except Exception as e:
-        print(f"Errore generico durante l'avvio di {script_path}: {e}")
+        print(f"ERRORE DEBUG: Eccezione durante l'avvio di {script_path}: {e}")
         return False
 
 def show_and_run_2(master_app):
@@ -249,7 +247,6 @@ def decode_from_binary(binary_string: str) -> str:
     """
     clean_string = binary_string.strip()
 
-    # Se la stringa contiene spazi, la trattiamo come una serie di byte
     if ' ' in clean_string:
         bytes = clean_string.split(' ')
         decoded_numbers = []
@@ -265,7 +262,6 @@ def decode_from_binary(binary_string: str) -> str:
 
         return f"[__BINARIO__]: {' '.join(decoded_numbers)} (Testo: {decoded_text})"
 
-    # Se non ci sono spazi, la trattiamo come un unico numero
     else:
         try:
             if not clean_string:
@@ -288,10 +284,8 @@ def decode_from_octal(octal_string: str) -> str:
 
         number = int(clean_string, 8)
 
-        # Aggiungi questa parte per ottenere il carattere ASCII
         ascii_char = chr(number) if 0 <= number <= 255 else 'N/A'
 
-        # Modifica qui per includere entrambi nella stringa di output
         return f"[__ OTTALE__]: {number} (Testo: {ascii_char})"
     except ValueError:
         return "[ERRORE] : La stringa ottale non è formattata correttamente."
@@ -316,10 +310,8 @@ def decode_from_hex(hex_string: str) -> str:
     try:
         number = int(clean_string, 16)
 
-        # Aggiungi questa parte per ottenere il carattere ASCII
         ascii_char = chr(number) if 0 <= number <= 255 else 'N/A'
 
-        # Modifica qui per includere entrambi nella stringa di output
         return f"[__ESADECIMALE__]: {number} (Testo: {ascii_char})"
     except ValueError:
         return "[ERRORE] : La stringa esadecimale non è formattata correttamente."
@@ -345,7 +337,7 @@ class Terminal1(tk.Text):
         self.bind("<Button-1>", self.on_click)
         self.bind("<B1-Motion>", self.on_drag)
         self.bind("<Return>", self.on_return)
-        self.bind("<Button-3>", self.on_right_click) # <--- NUOVA RIGA
+        self.bind("<Button-3>", self.on_right_click)
 
         self.mark_set("insert", self.prompt_index)
         self.focus_set()
@@ -360,20 +352,18 @@ class Terminal1(tk.Text):
             sel_start, sel_end = self.index("sel.first"), self.index("sel.last")
             ranges = self.tag_ranges("readonly")
             return any(self.compare(sel_start, "<", ranges[i+1]) and
-                                         self.compare(sel_end, ">", ranges[i])
-                                         for i in range(0, len(ranges), 2))
+                                             self.compare(sel_end, ">", ranges[i])
+                                             for i in range(0, len(ranges), 2))
         except tk.TclError:
             return False
 
     def on_right_click(self, event):
-        # Se c'è una selezione attiva, copia il testo
         try:
             if self.tag_ranges("sel"):
                 self.event_generate("<<Copy>>")
         except tk.TclError:
             pass
 
-        # Se non c'è una selezione, incolla il testo
         try:
             text = self.clipboard_get()
             if self.compare(self.index("insert"), ">=", self.prompt_index):
@@ -392,7 +382,7 @@ class Terminal1(tk.Text):
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                          self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                   self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
             else:
                 self.insert("insert", " ")
@@ -487,7 +477,7 @@ class Terminal2(tk.Text):
         self.typing_thread = None
         self.skip_typing = False
         self.bind("<Key>", self.on_key_terminal2)
-        self.bind("<Button-3>", self.on_right_click) # <--- NUOVA RIGA
+        self.bind("<Button-3>", self.on_right_click)
 
         self._is_scrolling = False
         self.history = []
@@ -497,7 +487,6 @@ class Terminal2(tk.Text):
         self.bind("<Control-Down>", scroll_both_down)
         
     def on_right_click(self, event):
-        # Copia il testo se c'è una selezione attiva.
         try:
             if self.tag_ranges("sel"):
                 self.event_generate("<<Copy>>")
@@ -580,7 +569,7 @@ class Terminal2(tk.Text):
                 if ascii_output:
                     self.insert("end", f"ASCII: {ascii_output}\n")
 
-            elif all(c in "01" for c in input_text):  # binario senza 0b
+            elif all(c in "01" for c in input_text):
                 bits = input_text.replace(" ", "")
                 if len(bits) % 8 == 0:
                     ascii_output = ''.join(chr(int(bits[i:i+8], 2)) for i in range(0, len(bits), 8))
@@ -593,7 +582,7 @@ class Terminal2(tk.Text):
                 if ascii_output:
                     self.insert("end", f"ASCII: {ascii_output}\n")
 
-            elif all(c in "01234567" for c in input_text):  # ottale senza 0o
+            elif all(c in "01234567" for c in input_text):
                 value = int(input_text, 8)
                 ascii_output = chr(value) if 0 <= value <= 255 else ''
                 self.insert("end", f"Ottale: {input_text}\n")
@@ -601,14 +590,14 @@ class Terminal2(tk.Text):
                 if ascii_output:
                     self.insert("end", f"ASCII: {ascii_output}\n")
 
-            elif input_text.isdigit():  # decimale puro
+            elif input_text.isdigit():
                 value = int(input_text)
                 ascii_output = chr(value) if 0 <= value <= 255 else ''
                 self.insert("end", f"Decimale: {input_text}\n")
                 if ascii_output:
                     self.insert("end", f"ASCII: {ascii_output}\n")
 
-            else:  # trattiamo come stringa testuale -> stampa ASCII e codifiche
+            else:
                 ascii_output = input_text
                 self.insert("end", f"Testo: {input_text}\n")
                 self.insert("end", f"ASCII codes: {' '.join(str(ord(c)) for c in input_text)}\n")
@@ -629,22 +618,37 @@ class Terminal2(tk.Text):
 
         return "break"
 
-
 # --- Funzione per avviare l'app in modo sequenziale ---
 def start_app():
     root = tk.Tk()
     root.title("Fake Desktop Terminal")
     root.configure(bg="black")
-    root.withdraw()  # Nascondi la finestra principale
+    root.protocol("WM_DELETE_WINDOW", lambda: None)
+    root.withdraw()
 
-    # Esegui l'effetto Matrix e attendi l'autenticazione
+    # SPOSTATO QUI: Collega la funzione di chiusura al tasto 'Esc'
+    # Questo assicura che l'evento sia gestito subito, anche durante l'animazione di Matrix.
+    def close_and_run_music_script(event=None):
+        print("DEBUG: Tasto 'Esc' premuto. Preparazione all'avvio di 'arresto_musica.py' e alla chiusura dell'app.")
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(current_dir, "arresto_musica.py")
+        run_script(script_path)
+        root.destroy()
+    
+    root.bind("<Escape>", close_and_run_music_script)
+    
     authenticated = run_matrix_effect(root)
 
     if authenticated:
         print("Autenticazione riuscita, avvio della GUI...")
-        # Se l'autenticazione ha successo, mostra la GUI
-        root.deiconify()  
+        root.deiconify()
         root.attributes("-fullscreen", True)
+
+        def do_nothing(event=None):
+            return "break"
+        
+        root.bind("<KeyPress-Win_L>", do_nothing)
+        root.bind("<KeyPress-Win_R>", do_nothing)
 
         PROMPT1 = "Terminale1@fakedesktop:~$ "
         PROMPT2 = "Terminale2@fakedesktop:~$ "
@@ -754,7 +758,6 @@ def start_app():
 
     else:
         print("Autenticazione fallita o utente ha annullato.")
-        root.destroy()
         sys.exit()
 
 if __name__ == '__main__':
