@@ -3,3 +3,20 @@ From https://github.com/Fibonacci223/app_test
  * branch            master     -> FETCH_HEAD
 Already up to date.
 Aggiungo modifiche... 
+warning: in the working copy of 'git-auto-20250808.log', LF will be replaced by CRLF the next time Git touches it
+Eseguo commit con messaggio: "Aggiornamento automatico - 08/08/2025 12:35:47,33" 
+[master f8c626c] Aggiornamento automatico - 08/08/2025 12:35:47,33
+ 7 files changed, 47 insertions(+), 131 deletions(-)
+ delete mode 100644 git-auto-20250803.log
+ delete mode 100644 git-auto-20250804.log
+ delete mode 100644 git-auto-20250805.log
+ delete mode 100644 git-auto-20250807.log
+Pusho su master... 
+To https://github.com/Fibonacci223/app_test.git
+   f0cbd4b..f8c626c  master -> master
+Operazione completata con successo! 
+==== 08/08/2025 13:30:23,41 ==== 
+From https://github.com/Fibonacci223/app_test
+ * branch            master     -> FETCH_HEAD
+Already up to date.
+Aggiungo modifiche... 

@@ -51,9 +51,6 @@ def run_matrix_effect(master_app):
     pygame.display.set_caption("Matrix Effect PRO")
     clock = pygame.time.Clock()
     
-    # ... (Il resto del tuo codice per l'effetto Matrix continua qui) ...
-    # ... (Tutto il ciclo while e la logica di input) ...
-    
     font = pygame.font.SysFont("consolas", FONT_SIZE, bold=True)
     custom_font_path = "ShareTechMono-Regular.ttf"
     try:
@@ -70,8 +67,10 @@ def run_matrix_effect(master_app):
     input_active = False
     password = ""
     error_timer = 0
-    cursor_timer = time.time()
-    cursor_visible = True
+    
+    # Timer e stato per il cursore
+    auth_cursor_timer = time.time()
+    auth_cursor_visible = True
 
     streams = []
     for i in range(columns):
@@ -110,8 +109,6 @@ def run_matrix_effect(master_app):
                 elif event.unicode.isprintable():
                     if len(password) < MAX_PASSWORD_LENGTH:
                         password += event.unicode
-                cursor_timer = now
-                cursor_visible = True
 
         screen.fill((0, 0, 0))
 
@@ -150,16 +147,19 @@ def run_matrix_effect(master_app):
             text_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
             label_text = "AUTHENTICATION REQUIRED"
-            label_width, _ = input_font.size(label_text)
+            label_width, label_height = input_font.size(label_text)
+            
             input_box_width = label_width + 40
             input_box = pygame.Rect(WIDTH // 2 - input_box_width // 2, HEIGHT // 2 - input_box_height // 2, input_box_width, input_box_height)
             
             s = pygame.Surface((input_box.width + 12, input_box.height + 12), pygame.SRCALPHA)
             s.fill((0, 120, 0, int(255 * (0.5 + 0.5 * abs(1 - (now * 2) % 2)))))
             text_surface.blit(s, (input_box.x - 6, input_box.y - 6))
+            
             pygame.draw.rect(text_surface, (0, 255, 0), input_box, 1)
 
-            label_y = input_box.y - 60
+            label_y = input_box.y - 80 
+            main_label_x = WIDTH // 2 - label_width // 2
 
             if error_timer > now:
                 err_text = "ERROR – UNAUTHORIZED ACCESS"
@@ -186,42 +186,68 @@ def run_matrix_effect(master_app):
                     flicker_surface.fill((255, 0, 0, random.randint(10, 50)))
                     text_surface.blit(flicker_surface, (0, 0))
             else:
-                prefix_text = "> "
-                prefix_width, _ = input_font.size(prefix_text)
-                prefix_x = input_box.x - prefix_width
+                # --- Codice per la scritta "AUTHENTICATION REQUIRED" con glow, scanlines e cursore lampeggiante ---
+                text_label_surface = pygame.Surface((label_width + 20, label_height), pygame.SRCALPHA)
                 
-                shadow_prefix = input_font.render(prefix_text, True, (0, 100, 0))
-                text_surface.blit(shadow_prefix, (prefix_x + 2, label_y + 2))
-                prefix_surface = input_font.render(prefix_text, True, (0, 255, 0))
-                text_surface.blit(prefix_surface, (prefix_x, label_y))
+                for i in range(3):
+                    alpha = 100 - i * 30
+                    color = (0, 255, 0)
+                    temp_glow_surface = input_font.render(label_text, True, color)
+                    temp_glow_surface.set_alpha(alpha)
+                    offset = (i+1) * 1
+                    text_label_surface.blit(temp_glow_surface, (0 - offset, 0 - offset))
+                    text_label_surface.blit(temp_glow_surface, (0 + offset, 0 + offset))
 
-                main_label_x = input_box.x + (input_box.width - label_width) // 2
-
-                shadow_label = input_font.render(label_text, True, (0, 100, 0))
-                text_surface.blit(shadow_label, (main_label_x + 2, label_y + 2))
                 label_surface = input_font.render(label_text, True, (0, 255, 0))
-                text_surface.blit(label_surface, (main_label_x, label_y))
+                text_label_surface.blit(label_surface, (0, 0))
 
-            if error_timer <= now:
-                pw_char_width, _ = password_font.size("●")
+                # Aggiunta del cursore lampeggiante
+                if now - auth_cursor_timer > 0.5:
+                    auth_cursor_visible = not auth_cursor_visible
+                    auth_cursor_timer = now
+                
+                if auth_cursor_visible:
+                    auth_cursor_text = "_"
+                    auth_cursor_surface = input_font.render(auth_cursor_text, True, (0, 255, 0))
+                    # Posiziona il cursore dopo la scritta
+                    auth_cursor_x = label_width + 5
+                    auth_cursor_y = label_height - auth_cursor_surface.get_height()
+                    text_label_surface.blit(auth_cursor_surface, (auth_cursor_x, auth_cursor_y))
+                    
+                for y in range(0, label_height, 2):
+                    pygame.draw.line(text_label_surface, (0, 0, 0, 80), (0, y), (label_width, y), 1)
+                
+                text_surface.blit(text_label_surface, (main_label_x, label_y))
+
+                # --- Blocco di codice per la password - con effetti sull'intera casella ---
+                password_box_surface = pygame.Surface((input_box.width, input_box.height), pygame.SRCALPHA)
+                
+                # Aggiunta effetto pixel e scanline sulla superficie, con trasparenza ridotta
+                for y in range(0, input_box.height, 2):
+                    # Valore di trasparenza ridotto a 40 (da 80)
+                    pygame.draw.line(password_box_surface, (0, 0, 0, 40), (0, y), (input_box.width, y), 1)
+                
+                for _ in range(200): # numero di pixel
+                    px = random.randint(0, input_box.width)
+                    py = random.randint(0, input_box.height)
+                    # Valore di trasparenza ridotto per i pixel
+                    pixel_color = (random.randint(0, 50), random.randint(150, 255), random.randint(0, 50), 60)
+                    password_box_surface.set_at((px, py), pixel_color)
+                
+                pw_char_width, pw_char_height = password_font.size("●")
                 space_for_chars = input_box.width - 20
                 visible_char_limit = min(int(space_for_chars / pw_char_width), 35) if pw_char_width > 0 else 35
                 display_password = password[-visible_char_limit:] if len(password) > visible_char_limit else password
                 pw_text = "●" * len(display_password)
-                pw_width, _ = password_font.size(pw_text)
-                text_x = input_box.x + 10
-                text_y = input_box.y + 9
-                shadow_surface = password_font.render(pw_text, True, (0, 100, 0))
-                text_surface.blit(shadow_surface, (text_x + 2, text_y + 2))
-                password_surface = password_font.render(pw_text, True, (0, 255, 0))
-                text_surface.blit(password_surface, (text_x, text_y))
+                text_x = 10
+                text_y = (input_box.height - pw_char_height) // 2
 
-                if now - cursor_timer > 0.5:
-                    cursor_visible = not cursor_visible
-                    cursor_timer = now
-                if cursor_visible:
-                    cursor_pos = (text_x + pw_width, text_y)
-                    pygame.draw.line(text_surface, (0, 255, 0), cursor_pos, (cursor_pos[0], cursor_pos[1] + input_box_height - 24), 2)
+                password_surface = password_font.render(pw_text, True, (0, 255, 0))
+                password_box_surface.blit(password_surface, (text_x, text_y))
+                
+                text_surface.blit(password_box_surface, (input_box.x, input_box.y))
+                
+                # --- Fine blocco password ---
             
             text_surface.set_alpha(text_alpha)
             screen.blit(text_surface, (0, 0))
