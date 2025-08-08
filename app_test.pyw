@@ -77,12 +77,16 @@ def run_script(script_path):
         return False
 
 def show_and_run_2(master_app):
-    """Mostra la GUI e poi avvia 2.pyw."""
+    """Mostra la GUI e avvia 2.pyw in un thread separato dopo un ritardo."""
     master_app.deiconify()
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    script_2_path = os.path.join(current_dir, "2.pyw")
-    run_script(script_2_path)
+    def delayed_run():
+        time.sleep(1)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        script_2_path = os.path.join(current_dir, "2.pyw")
+        run_script(script_2_path)
+
+    threading.Thread(target=delayed_run, daemon=True).start()
 
 def smooth_scroll(widget, target, cursor_target, steps=100, delay=10):
     widget._scroll_interrupt = False
@@ -324,8 +328,8 @@ class Terminal1(tk.Text):
         self.on_enter = on_enter
         self.term2 = term2
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                       highlightbackground="black", highlightcolor="lime")
+                        undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                        highlightbackground="black", highlightcolor="lime")
         self.insert("1.0", "Microsoft Windows [Versione 10.0.26100.4652]\n(c) Microsoft Corporation. Tutti i diritti riservati.\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -382,7 +386,7 @@ class Terminal1(tk.Text):
         if event.keysym == "space":
             if (hasattr(self, '_is_scrolling') and self._is_scrolling) or \
                (self.term2 and (hasattr(self.term2, '_is_scrolling') and self.term2._is_scrolling or \
-                                   self.term2.typing_thread and self.term2.typing_thread.is_alive())):
+                                     self.term2.typing_thread and self.term2.typing_thread.is_alive())):
                 interrupt_all_processes(self, self.term2)
             else:
                 self.insert("insert", " ")
@@ -468,8 +472,8 @@ class Terminal2(tk.Text):
         self.prompt = prompt
         self.term1 = term1
         self.configure(fg="lime", bg="black", insertbackground="lime", font=("Courier New", 14),
-                       undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
-                       highlightbackground="black")
+                        undo=False, wrap="word", bd=2, relief="solid", highlightthickness=2,
+                        highlightbackground="black")
         self.insert("1.0", "Terminale2 Ready\n\n")
         self.insert("end", prompt)
         self.prompt_index = self.index("end-1c")
@@ -626,17 +630,33 @@ def start_app():
     root.protocol("WM_DELETE_WINDOW", lambda: None)
     root.withdraw()
 
-    # SPOSTATO QUI: Collega la funzione di chiusura al tasto 'Esc'
+    # SPOSTATO QUI: Collega la funzione di chiusura al tasto 'Esc'.
     # Questo assicura che l'evento sia gestito subito, anche durante l'animazione di Matrix.
-    def close_and_run_music_script(event=None):
-        print("DEBUG: Tasto 'Esc' premuto. Preparazione all'avvio di 'arresto_musica.py' e alla chiusura dell'app.")
+    def close_and_run_all_scripts(event=None):
+        print("DEBUG: Tasto 'Esc' premuto. Avvio degli script di arresto e chiusura dell'app.")
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        script_path = os.path.join(current_dir, "arresto_musica.py")
-        run_script(script_path)
+        
+        # Avvia lo script per arrestare la musica
+        script_path_music = os.path.join(current_dir, "arresto_musica.py")
+        run_script(script_path_music)
+
+        # Avvia lo script per mostrare le icone
+        script_path_2 = os.path.join(current_dir, "2.pyw")
+        run_script(script_path_2)
+
         root.destroy()
     
-    root.bind("<Escape>", close_and_run_music_script)
+    root.bind("<Escape>", close_and_run_all_scripts)
     
+    # --- Avvia 1.pyw qui, prima dell'autenticazione ---
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_1_path = os.path.join(current_dir, "1.pyw")
+    if run_script(script_1_path):
+        print("DEBUG: 1.pyw avviato con successo.")
+    else:
+        print("ERRORE DEBUG: Fallito l'avvio di 1.pyw.")
+    # ---------------------------------------------------
+
     authenticated = run_matrix_effect(root)
 
     if authenticated:
@@ -666,7 +686,7 @@ def start_app():
                 toggle_btn.config(text="Modalità: Tutti gli Shift")
 
         toggle_btn = tk.Button(button_frame, text="Modalità: Tutti gli Shift", command=toggle_mode,
-                               bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
+                                 bg="black", fg="lime", font=("Courier New", 12), relief="raised", bd=3)
         toggle_btn.pack(side="top", pady=5)
 
         terminal_frame = tk.Frame(root, bg="black")
@@ -754,10 +774,20 @@ def start_app():
 
         terminal1.on_enter = on_command
         
+        # Avvia 2.pyw dopo l'autenticazione
+        show_and_run_2(root)
+        
         root.mainloop()
 
     else:
         print("Autenticazione fallita o utente ha annullato.")
+        # Avvia gli script di pulizia anche se l'autenticazione fallisce
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        script_path_music = os.path.join(current_dir, "arresto_musica.py")
+        run_script(script_path_music)
+        script_path_2 = os.path.join(current_dir, "2.pyw")
+        run_script(script_path_2)
+
         sys.exit()
 
 if __name__ == '__main__':
